@@ -1,2 +1,1 @@
-# supa-irc
-dis is a supa irc
+# NOT WORKING FOR NOW
