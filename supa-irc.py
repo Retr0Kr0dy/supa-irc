@@ -1,4 +1,4 @@
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 
 import argparse, socket, threading
 
@@ -15,7 +15,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
-from numpy import array
 
 
 #color console
@@ -130,11 +129,22 @@ def serving(host,port):
             #receive ENCRYPT [ nickname and public.key.client ] - DECRYPT using private.key.server
             mmm =client.recv(4096).decode()
             print(mmm)
+            print(len(mmm))
+            mmm = private_key.decrypt(str(mmm).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))    
+            d_public_key = serialization.load_pem_public_key(mmm ,backend=default_backend())
+            encrypted = d_public_key.encrypt(str(AES_key).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+            print(encrypted)
+            client.send(str(encrypted).encode())
+            # s = str('\n')+(str(AES_key).encode()
             ############################
             #send ENCRYPT [ AES KEY using public.key.client ] and SIGN using private.key.server 
             ############################
             print (f"\nNew user connected at {address}")
             clients_list.append(client)
+            client_aes.append(AES_key)
+            client_priv_serv.append(private_key)
+            client_pub_serv.append(public_key_plain)
+            client_pub_client.append(d_public_key)
             print (clients_list)
             thread = threading.Thread(target=handle, args=(client,))
             thread.start()
@@ -177,64 +187,58 @@ def clienting(host,port,nickname):
         print(nickname)
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect ((host, port))
-    def init():
-        message = client.recv(1024).decode()
-        public_key_plain = message[6:][2:]
-        public_key_plain = public_key_plain[:-1]
-        public_key_plain = (public_key_plain).replace("\\n", "\n")
-        y = ''
-        x = public_key_plain.splitlines()[1:-1]
-        x = public_key_plain.splitlines()
-        for i in x:
-            y += i + '\n'
-        print(y)
-        public_key = serialization.load_pem_public_key(y.encode(), backend=default_backend())
-        print(public_key,"\n\nWAS RECEIVE\n\n")
-        print("\n\nGENERATING RSA LOCAL KEYS\n\n")
-        Lpprivate_key = rsa.generate_private_key(public_exponent=65537, key_size=4096, backend=default_backend())
-        Lpprivate_key = Lpprivate_key.private_bytes(encoding=serialization.Encoding.PEM,format=serialization.PrivateFormat.PKCS8,encryption_algorithm=serialization.NoEncryption())
-        Lprivate_key = serialization.load_pem_private_key(Lpprivate_key,password=None,backend=default_backend())
-        Lpublic_key = Lprivate_key.public_key()
-        Lpublic_key_plain = public_key.public_bytes(encoding=serialization.Encoding.PEM,format=serialization.PublicFormat.SubjectPublicKeyInfo)
-        print("\n\n         LOCAL PUBLIC KEY PLAIN\n\n", Lpublic_key_plain,"\n\n")
-        Lpublic_key = serialization.load_pem_public_key(Lpublic_key_plain ,backend=default_backend())
-        print("\n\nENCRYPTING SHIT\n\n")
-        encrypted = public_key.encrypt(str(Lpublic_key).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
-        print(encrypted)
-        client.send(str(encrypted).encode())
-        
-    init()
+    message = client.recv(1024).decode()
+    AES_key = message.splitlines()[:1]
+    print(message)
+    print("\n\nAES\n",AES_key,'\nEND\n\n')
+    public_key_plain = message[6:][2:]
+    public_key_plain = public_key_plain[:-1]
+    public_key_plain = (public_key_plain).replace("\\n", "\n")
+    y = ''
+    x = public_key_plain.splitlines()[1:-1]
+    x = public_key_plain.splitlines()
+    for i in x:
+        y += i + '\n'
+    print(y)
+    public_key = serialization.load_pem_public_key(y.encode(), backend=default_backend())
+    print(public_key,"\n\nWAS RECEIVE\n\n")
+    print("\n\nGENERATING RSA LOCAL KEYS\n\n")
+    Lpprivate_key = rsa.generate_private_key(public_exponent=65537, key_size=4096, backend=default_backend())
+    Lpprivate_key = Lpprivate_key.private_bytes(encoding=serialization.Encoding.PEM,format=serialization.PrivateFormat.PKCS8,encryption_algorithm=serialization.NoEncryption())
+    Lprivate_key = serialization.load_pem_private_key(Lpprivate_key,password=None,backend=default_backend())
+    Lpublic_key = Lprivate_key.public_key()
+    Lpublic_key_plain = public_key.public_bytes(encoding=serialization.Encoding.PEM,format=serialization.PublicFormat.SubjectPublicKeyInfo)
+    print("\n\n         LOCAL PUBLIC KEY PLAIN\n\n", Lpublic_key_plain,"\n\n")
+    Lpublic_key = serialization.load_pem_public_key(Lpublic_key_plain ,backend=default_backend())
+    print("\n\nENCRYPTING SHIT\n\n")
+    encrypted = public_key.encrypt(str(Lpublic_key).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+    print(encrypted)
+    client.send(str(encrypted).encode())
+    AES_key = client.recv(4096).decode()    
     client.send(nickname.encode())
 
 
     def crypt(message):
-        print("")
+        encrypted = public_key.encrypt(str(message).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+        print("\n\nMESSAGE HA BEEN ENCRYPTED\n\n")
+        return encrypted
+
     def decrypt(message):
-        print("")
+        decrypted = Lprivate_key.decrypt(str(message).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+        print("\n\nMESSAGE HA BEEN DECRYPTED\n\n")
+        return decrypted
 
     def receive():
         while True:
             try:
                 message = client.recv(1024).decode('ascii')
+                message = decrypt(message)
                 print(message)
                 print(message[:4])
                 if message == 'NICK':
                     client.send(nickname.encode('ascii'))
-                # elif message[:4] == 'INIT':
-                #     #generate RSA keys
-                #     local_private_key = rsa.generate_private_key(public_exponent=65537, key_size=4096, backend=default_backend())
-                #     local_public_key = local_private_key.public_key()
-                #     public_key = serialization.load_pem_public_key(
-                #                     message[6:],
-                #                     backend=default_backend()
-                #                 )
-                #     print(public_key)
-                #     #send ENCRYPT [ nickname and public.key.client ] using public.key.serv
-                #     payload = 3
-                #     client.send(payload.encode())
-                #     #receive ENCRYPT [ AES KEY ] check SIGN using public.key.serv
                 else:
-                    print(message)
+                    pass
             except:
                 print("An error occured!")
                 client.close()
@@ -247,7 +251,7 @@ def clienting(host,port,nickname):
                 client.close()
                 exit(-1)
             #send ENCRYPT [ message ] using AES key and SIGN using private.key.client - HASHE of message
-            client.send(message.encode('ascii'))
+            client.send(crypt(message).encode('ascii'))
 
     receive_thread = threading.Thread(target=receive)
     receive_thread.start()
