@@ -1,6 +1,6 @@
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 
-import argparse, socket, threading, time  
+import argparse, socket, threading, time, base64
 
 
 
@@ -152,14 +152,12 @@ def serving(host,port):
             #decrypt mmm using privatekeyserver
             mmm1 = private_key.decrypt(mmm,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
             print("D#######")
-            print(mmm1)
             Dpk1 = mmm1[2:-1]
             time.sleep(0.2)
             mmm =client.recv(8192)
             #decrypt mmm using privatekeyserver
             mmm2 = private_key.decrypt(mmm,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
             print("D#######")
-            print(mmm2)
             Dpk2 = mmm2[2:-1]
             mmm = Dpk1 + Dpk2
             mmm = mmm.decode().replace("\\n","\n")
@@ -172,14 +170,18 @@ def serving(host,port):
             print("\n\n         Ok, pause, you just sent Y\n            and now you want to load the key \n")
             mmm = mmm.encode()
             print(mmm)
+            print(len(mmm))
             d_public_key = serialization.load_pem_public_key(mmm ,backend=default_backend())
             print("D#######\n\n     Decrypted so ut's giid fir now\n")
             print(mmm)
             #encrypt AESkey using publickeylient
             print("MMMMMMMMMMM")
-            encrypted = d_public_key.encrypt(str(AES_key).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
-            print(encrypted)
+            encrypted = d_public_key.encrypt((AES_key),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+            print(encrypted,"\n",len(encrypted))
+            encrypted = base64.b64encode(encrypted)
+            print(encrypted,"\n",len(encrypted))
             print("\n\n             Encrypted Successfully\n")
+            print(len(encrypted))
             client.send(str(encrypted).encode())
             print("\n\n AES key send \n\n")
             # s = str('\n')+(str(AES_key).encode()
@@ -287,12 +289,21 @@ def clienting(host,port,nickname):
 
     print("pub key send")
     #Receive AES key
-    mmm = client.recv(8192)[2:-1]
-    print(mmm)
-    mmm.replace('\\','\'')
-    print(mmm)
+    mmm = client.recv(8192).decode()
+    
+    # mmm.replace('\\\\\\','\\')
+    # print(mmm)
+    # mmm.replace('\\\\','\\')
     print("\nDECRYPT MEESSAGE\n")
-    AES_key = Lprivate_key.decrypt(mmm,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+    print(mmm[2:-1])
+    mmm = base64.b64decode(mmm[2:-1])
+    print(mmm)
+    print("HASHHH")
+    print(len(mmm))
+    mmm = Lprivate_key.decrypt(mmm,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+    print(len(mmm))
+    print(mmm)
+    AES_key = mmm
     print("FONOSHEDDDD")
 
 
