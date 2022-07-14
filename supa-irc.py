@@ -1,4 +1,4 @@
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 
 import argparse, socket, threading, time  
 
@@ -66,7 +66,7 @@ def serving(host,port):
     clients_list = []
     clients_nick = []
     client_aes = []
-    client_priv_serv = []
+    client_priv_serv = []   
     client_pub_serv = []
     client_pub_client = []
 
@@ -150,19 +150,38 @@ def serving(host,port):
             time.sleep(0.2)
             mmm =client.recv(8192)
             #decrypt mmm using privatekeyserver
-            print("mmm : ",len(mmm))
-            print("public_key_plain : ",len(public_key_plain))
-            print("pprivate_key : ",len(pprivate_key))
-            print("public_key_plain : ",len(public_key_plain))
+            mmm1 = private_key.decrypt(mmm,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
             print("D#######")
-            mmm = private_key.decrypt(mmm.padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))    
+            print(mmm1)
+            Dpk1 = mmm1[2:-1]
+            time.sleep(0.2)
+            mmm =client.recv(8192)
+            #decrypt mmm using privatekeyserver
+            mmm2 = private_key.decrypt(mmm,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
             print("D#######")
+            print(mmm2)
+            Dpk2 = mmm2[2:-1]
+            mmm = Dpk1 + Dpk2
+            mmm = mmm.decode().replace("\\n","\n")
+            y = ''
+            x = mmm.splitlines()[1:-1]
+            x = mmm.splitlines()
+            for i in x:
+                y += i + '\n'
+            print(y)
+            print("\n\n         Ok, pause, you just sent Y\n            and now you want to load the key \n")
+            mmm = mmm.encode()
+            print(mmm)
             d_public_key = serialization.load_pem_public_key(mmm ,backend=default_backend())
-            print("D#######")
+            print("D#######\n\n     Decrypted so ut's giid fir now\n")
+            print(mmm)
             #encrypt AESkey using publickeylient
+            print("MMMMMMMMMMM")
             encrypted = d_public_key.encrypt(str(AES_key).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
             print(encrypted)
+            print("\n\n             Encrypted Successfully\n")
             client.send(str(encrypted).encode())
+            print("\n\n AES key send \n\n")
             # s = str('\n')+(str(AES_key).encode()
             ############################
             #send ENCRYPT  AES KEY using public.key.client ] and SIGN using private.key.server 
@@ -218,8 +237,7 @@ def clienting(host,port,nickname):
     client.connect ((host, port))
     #receiving RSA public.key.server
     message = client.recv(8192).decode()
-    # AES_key = message.splitlines()[:1]
-    # print(message)
+    # AES_key = message.splitlin
     # print("\n\nAES\n",AES_key,'\nEND\n\n')
     # public_key_plain = message[6:][2:]
     public_key_plain = message[2:-1]
@@ -246,24 +264,36 @@ def clienting(host,port,nickname):
             
     ##########################################
     #Encrypt public.key.client using public.key.server
-    encrypted = public_key.encrypt(str(Lpublic_key).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
-       # print(len(Lprivate_key))
-    # print(len(Lpublic_key))
-    print("##########################")
-    # print(encrypted)
-    # mmm = Lprivate_key.decrypt(encrypted),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
-    # print(mmm)        
-    # print("#################")
+
     #Send encrypted public.key.client and nickname
     client.send(str(nickname).encode())
     print("nick send")
     time.sleep(0.1)
-    # client.send(str(encrypted).encode())
+
+    Lp_k_p_1 = Lpublic_key_plain[:len(Lpublic_key_plain)//2]
+    print(Lp_k_p_1,"GOOD")
+
+    encrypted = public_key.encrypt(str(Lp_k_p_1).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
     client.send((encrypted))
+
+    time.sleep(0.1)
+
+    Lp_k_p_2 = Lpublic_key_plain[len(Lpublic_key_plain)//2:]
+    print(Lp_k_p_2,"GOOD")
+
+    encrypted = public_key.encrypt(str(Lp_k_p_2).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+    client.send((encrypted))
+
+
     print("pub key send")
     #Receive AES key
-    AES_key = client.recv(8192).decode()    
-    client.send(nickname.encode())
+    mmm = client.recv(8192)[2:-1]
+    print(mmm)
+    mmm.replace('\\','\'')
+    print(mmm)
+    print("\nDECRYPT MEESSAGE\n")
+    AES_key = Lprivate_key.decrypt(mmm,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+    print("FONOSHEDDDD")
 
 
     def crypt(message):
