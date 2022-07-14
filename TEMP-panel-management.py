@@ -1,4 +1,4 @@
-    from random import randint
+from random import randint
 import time
 from rich import print
 from rich.layout import Layout
