@@ -1,4 +1,4 @@
-VERSION = "0.1.10"
+VERSION = "0.1.11"
 
 import argparse, socket, threading, time, base64
 from email import message
@@ -83,17 +83,16 @@ def serving(host,port):
         print("\nIN : ", message,len(message))
         index = clients_list.index(client)
         AES_key = client_aes[index]
+        public_key_client = client_pub_client[index]
 
         print(index,AES_key)
         
+        
         iv = message [:16]
         encrypted_data = message [16:]
-        
-        print("DECRYPT")
-        
+    
         cipher = AES.new(
-            AES_key, 
-            AES.MODE_CBC, 
+            AES_key, AES.MODE_CBC, 
             iv=iv
         )
 
@@ -104,27 +103,75 @@ def serving(host,port):
 
         message = message.decode().replace('\r','')
         
-        print(message)
-        
-        # message = decrypt(message,client)
+        signature = client.recv(8192)
+
+        digest = hashes.Hash(hashes.SHA256())
+        digest.update(message.encode())
+        hash = digest.finalize()
+
+        try:
+            verif = public_key_client.verify(
+                signature,
+                hash,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            print("\nGOOD HASH\n")
+        except:
+            print("\nBAD HASH\n")
+
+
         print("DECRYPTED")
         for client in clients_list:
             print("client = ",client)
             index = clients_list.index(client)
             AES_key = client_aes[index]
+            private_key = client_priv_serv[index]
+
             message = bytes(str(message).encode())
-            # #send ENCRYPT [ message ] using AES key and SIGN using private.key.client - HASHE of message
-            # message = crypt(message)            
+            
+            # Sign using hash of message
+            digest = hashes.Hash(hashes.SHA256())
+            digest.update(message)
+            hash = digest.finalize()
+
+            signature = private_key.sign(
+                hash,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+
+
             l = 16 - (len(message) % 16)
             message = ("\r"*(l+16)).encode() + message
-            # message = base64.b64encode(message)
-            cipher = AES.new(AES_key, AES.MODE_CBC)
-            message = cipher.encrypt(pad(message, AES.block_size))
-            print("\n\nMESSAGE HA BEEN ENCRYPTED\n\n")
-            print(message)
-            # message = encrypt(message,client)
-            client.send(message)
+            
+            cipher = AES.new(
+                AES_key, 
+                AES.MODE_CBC
+            )
+            
+            message = cipher.encrypt(
+                    
+                pad(message, 
+                    
+                AES.block_size)
+                    
+            )
 
+        
+            client.send(message)
+            # input("PAUSE")
+            time.sleep(0.1)
+            client.send(signature)
+
+
+            
             print("SENF")
             iv = message [:16]
             encrypted_data = message [16:]
@@ -395,6 +442,21 @@ def clienting(host,port,nickname):
 
     def crypt(message):
         
+        # Sign using hash of message
+        digest = hashes.Hash(hashes.SHA256())
+        digest.update(message)
+        hash = digest.finalize()
+
+        signature = private_key.sign(
+            hash,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+
+
         l = 16 - (len(message) % 16)
         message = ("\r"*(l+16)).encode() + message
         
@@ -402,17 +464,25 @@ def clienting(host,port,nickname):
             AES_key, 
             AES.MODE_CBC
         )
-
+        
         message = cipher.encrypt(
+                
             pad(message, 
+                
             AES.block_size)
+                
         )
 
+    
         client.send(message)
+        # input("PAUSE")
+        time.sleep(0.1)
+        client.send(signature)
 
         return encrypted
 
     def decrypt(message):
+
         iv = message [:16]
         encrypted_data = message [16:]
     
@@ -428,6 +498,26 @@ def clienting(host,port,nickname):
 
         message = message.decode().replace('\r','')
         
+        signature = client.recv(8192)
+
+        digest = hashes.Hash(hashes.SHA256())
+        digest.update(message.encode())
+        hash = digest.finalize()
+
+        try:
+            verif = public_key_server.verify(
+                signature,
+                hash,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            print("\nGOOD HASH\n")
+        except:
+            print("\nBAD HASH\n")
+
         return message
 
     def receive():
