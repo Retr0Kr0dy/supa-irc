@@ -1,4 +1,4 @@
-VERSION = "0.1.9"
+VERSION = "0.1.10"
 
 import argparse, socket, threading, time, base64
 from email import message
@@ -83,17 +83,29 @@ def serving(host,port):
         print("\nIN : ", message,len(message))
         index = clients_list.index(client)
         AES_key = client_aes[index]
+
         print(index,AES_key)
+        
         iv = message [:16]
         encrypted_data = message [16:]
+        
         print("DECRYPT")
-        cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
-        message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
+        
+        cipher = AES.new(
+            AES_key, 
+            AES.MODE_CBC, 
+            iv=iv
+        )
 
-        # message = base64.b64decode(message)
+        message = unpad(
+            cipher.decrypt(encrypted_data), 
+            AES.block_size
+        )
+
         message = message.decode().replace('\r','')
+        
         print(message)
-        print("client = ",client)
+        
         # message = decrypt(message,client)
         print("DECRYPTED")
         for client in clients_list:
@@ -113,70 +125,40 @@ def serving(host,port):
             # message = encrypt(message,client)
             client.send(message)
 
+            print("SENF")
+            iv = message [:16]
+            encrypted_data = message [16:]
+            print("DECRYPT")
+            cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
+            message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
+
+            # message = base64.b64decode(message)
+            message = message.decode().replace('\r','')
+            print(message)
+        print ("\nbroadcoasted !!!\n----------------")
+
     def handle(client):
         while True:
             try:
                 message = client.recv(8192)
                 if len(message) == 0:
                     print("ZEROWED")
-                    time.sleep(1)
+                    index = clients_list.index(client)
+                    client.close()
+
                 else:
                     print("\nMessage = ",message)
-                    # broadcast(message, client)
-
-
-                    # TO REVIEW FROM HERE
-                    print("\nIN : ", message,len(message))
-                    index = clients_list.index(client)
-                    AES_key = client_aes[index]
-                    print(index,AES_key)
-                    iv = message [:16]
-                    encrypted_data = message [16:]
-                    print("DECRYPT")
-                    cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
-                    message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
-
-                    # message = base64.b64decode(message)
-                    message = message.decode().replace('\r','')
-                    print(message)
-                    print("client = ",client)
-                    # message = decrypt(message,client)
-                    print("DECRYPTED")
-                    for client in clients_list:
-                        print("client = ",client)
-                        index = clients_list.index(client)
-                        AES_key = client_aes[index]
-                        message = bytes(str(message).encode())
-                        # #send ENCRYPT [ message ] using AES key and SIGN using private.key.client - HASHE of message
-                        # message = crypt(message)            
-                        l = 16 - (len(message) % 16)
-                        message = ("\r"*(l+16)).encode() + message
-                        # message = base64.b64encode(message)
-                        cipher = AES.new(AES_key, AES.MODE_CBC)
-                        message = cipher.encrypt(pad(message, AES.block_size))
-                        print("\n\nMESSAGE HA BEEN ENCRYPTED\n\n")
-                        print(message)
-                        # message = encrypt(message,client)
-                        client.send(message)
-
-
-                        print("SENF")
-                        iv = message [:16]
-                        encrypted_data = message [16:]
-                        print("DECRYPT")
-                        cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
-                        message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
-
-                        # message = base64.b64decode(message)
-                        message = message.decode().replace('\r','')
-                        print(message)
-                    print ("\nbroadcoasted !!!\n----------------")
+                    broadcast(message, client)
             except:
+                client.close()
                 index = clients_list.index(client)
                 clients_list.remove(client)
-                client.close()
-                nck = clients_nick[index]
-                clients_nick.remove(nck)
+                clients_nick.remove(clients_nick[index])
+                client_aes.remove(client_aes[index])
+                client_priv_serv.remove(client_priv_serv[index])
+                client_pub_serv.remove(client_pub_serv[index])
+                client_pub_client.remove(client_pub_client[index])
+                
                 break
 
     def main():
@@ -313,27 +295,57 @@ def clienting(host,port,nickname):
 
     # Receiving RSA public_key_server
     message = client.recv(8192).decode()
-    # AES_key = message.splitlin
-    # print("\n\nAES\n",AES_key,'\nEND\n\n')
-    # public_key_server_plain = message[6:][2:]
+
     public_key_server_plain = message[2:-1]
     public_key_server_plain = (public_key_server_plain).replace("\\n", "\n")
+    
     pre_public_key_server = ''
     lines = public_key_server_plain.splitlines()[1:-1]
     lines = public_key_server_plain.splitlines()
+    
     for i in lines:
         pre_public_key_server += i + '\n'
-    public_key_server = serialization.load_pem_public_key(str(pre_public_key_server).encode(), backend=default_backend())
+    
+    public_key_server = serialization.load_pem_public_key(
+        str(pre_public_key_server).encode(), 
+        backend=default_backend()
+    )
+    
     print("\n\npublic_key_server {\n",public_key_server, "\n}       WAS RECIEVED\n\n")
     
     # Generate RSA keys
-    private_key_plain = rsa.generate_private_key(public_exponent=65537, key_size=4096, backend=default_backend())
-    private_key_plain = private_key_plain.private_bytes(encoding=serialization.Encoding.PEM,format=serialization.PrivateFormat.PKCS8,encryption_algorithm=serialization.NoEncryption())
-    private_key = serialization.load_pem_private_key(private_key_plain,password=None,backend=default_backend())
+    private_key_plain = rsa.generate_private_key(
+        public_exponent=65537, 
+        key_size=4096, 
+        backend=default_backend()
+    )
+
+    private_key_plain = private_key_plain.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+
+    private_key = serialization.load_pem_private_key(
+        private_key_plain,
+        password=None,
+        backend=default_backend()
+    )
+    
     public_key = private_key.public_key()
-    public_key_plain = public_key.public_bytes(encoding=serialization.Encoding.PEM,format=serialization.PublicFormat.SubjectPublicKeyInfo)
+    
+    public_key_plain = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    
     print("\n\nLOCAL public_key_server {\n",public_key_plain, "\n}       WAS GENERATED\n\n")
-    public_key = serialization.load_pem_public_key(public_key_plain ,backend=default_backend())
+    
+    public_key = serialization.load_pem_public_key(
+        public_key_plain ,
+        backend=default_backend()
+    )
+    
     print("\n\nENCRYPTING SHIT\n\n")
             
     # Send nickname in plain text for fun
@@ -382,97 +394,63 @@ def clienting(host,port,nickname):
 
 
     def crypt(message):
-        # print("len message : ", len(message))
-        # print("message : ", (message))
-        # l = 16 - (len(message) % 16)
-        # message = ("\r"*(l+16)).encode() + message
-        # message = base64.b64encode(message)
-        # print("L = ",l)
-        # print("L + 16 = ",l+16)
-        # print("TEWT",message)
-        # print('\nKey Lenght : ', len(AES_key))
-        # print("len message : ", len(message))
-        # cipher = AES.new(AES_key, AES.MODE_CBC)
-        # message = cipher.encrypt(pad(message, AES.block_size))
-        # print("\n\nMESSAGE HA BEEN ENCRYPTED\n\n")
+        
         l = 16 - (len(message) % 16)
         message = ("\r"*(l+16)).encode() + message
-        message = base64.b64encode(message)
-        print("L = ",l)
-        print("L + 16 = ",l+16)
-        print("TEWT",message)
-        print('\nKey Lenght : ', len(AES_key))
-        print("len message : ", len(message))
-        cipher = AES.new(AES_key, AES.MODE_CBC)
-        message = cipher.encrypt(pad(message, AES.block_size))
-        print("\n\nMESSAGE HA BEEN ENCRYPTED\n\n")
         
-        print(message)
-        print(len(message))
-        
+        cipher = AES.new(
+            AES_key, 
+            AES.MODE_CBC
+        )
+
+        message = cipher.encrypt(
+            pad(message, 
+            AES.block_size)
+        )
+
+        client.send(message)
+
         return encrypted
 
     def decrypt(message):
         iv = message [:16]
         encrypted_data = message [16:]
-        cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
-        message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
+    
+        cipher = AES.new(
+            AES_key, AES.MODE_CBC, 
+            iv=iv
+        )
+
+        message = unpad(
+            cipher.decrypt(encrypted_data), 
+            AES.block_size
+        )
+
         message = message.decode().replace('\r','')
-        print("\n\nMESSAGE HA BEEN DECRYPTED\n\n",message,'\n\n')
+        
         return message
 
     def receive():
         while True:
             try:
                 message = client.recv(8192)
-                # message = decrypt(message)
-                iv = message [:16]
-                encrypted_data = message [16:]
-                print("DECRYPT")
-                cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
-                message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
-
-                # message = base64.b64decode(message)
-                message = message.decode().replace('\r','')
+                message = decrypt(message)
                 print(message)
-                if message == 'NICK':
-                    client.send(nickname.encode())
-                else:
-                    print(message)
             except:
                 print("An error occured!")
                 client.close()
                 break
+    
     def write():
         while True:
+            time.sleep(1)
             message = R+f'{nickname}'+B+' : '+W+'{}'.format(input(R'>'+B+': '+W))
         
             if "QUIT" in message:
                 client.close()
                 exit(-1)
             message = bytes(str(message).encode())
-            # #send ENCRYPT [ message ] using AES key and SIGN using private.key.client - HASHE of message
-            # message = crypt(message)           
-            l = 16 - (len(message) % 16)
-            message = ("\r"*(l+16)).encode() + message
-            # message = base64.b64encode(message)
-            cipher = AES.new(AES_key, AES.MODE_CBC)
-            message = cipher.encrypt(pad(message, AES.block_size))
-            print("\n\nMESSAGE HA BEEN ENCRYPTED\n\n")
-            
-            print(message)
-            print(len(message))
-            client.send(message)
-            # print("SENF")
-            iv = message [:16]
-            encrypted_data = message [16:]
-            print("DECRYPT")
-            cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
-            message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
-
-            # message = base64.b64decode(message)
-            message = message.decode().replace('\r','')
-            print(message)
+            message = crypt(message)           
             
 
     receive_thread = threading.Thread(target=receive)
