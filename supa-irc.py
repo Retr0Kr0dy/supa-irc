@@ -1,4 +1,4 @@
-VERSION = "0.1.8"
+VERSION = "0.1.9"
 
 import argparse, socket, threading, time, base64
 from email import message
@@ -80,32 +80,97 @@ def serving(host,port):
 
     def broadcast(message,client):
         # TO REVIEW FROM HERE
-        def decrypt(message,client):
+        print("\nIN : ", message,len(message))
+        index = clients_list.index(client)
+        AES_key = client_aes[index]
+        print(index,AES_key)
+        iv = message [:16]
+        encrypted_data = message [16:]
+        print("DECRYPT")
+        cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
+        message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
+
+        # message = base64.b64decode(message)
+        message = message.decode().replace('\r','')
+        print(message)
+        print("client = ",client)
+        # message = decrypt(message,client)
+        print("DECRYPTED")
+        for client in clients_list:
+            print("client = ",client)
             index = clients_list.index(client)
             AES_key = client_aes[index]
-            iv = message [:16]
-            encrypted_data = message [16:]
-            cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
-            message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
-            print("\n\nDECRYPTED for\n\n",clients_nick[index])
-            return message
-        def encrypt(message,client):
-            index = clients_list.index(client)
-            AES_key = client_aes[index]
+            message = bytes(str(message).encode())
+            # #send ENCRYPT [ message ] using AES key and SIGN using private.key.client - HASHE of message
+            # message = crypt(message)            
+            l = 16 - (len(message) % 16)
+            message = ("\r"*(l+16)).encode() + message
+            # message = base64.b64encode(message)
             cipher = AES.new(AES_key, AES.MODE_CBC)
             message = cipher.encrypt(pad(message, AES.block_size))
-            print()
-            return message
-        print (message)
-        for client in clients_list:
-            client.send(encrypt(decrypt(message,client),client))
+            print("\n\nMESSAGE HA BEEN ENCRYPTED\n\n")
+            print(message)
+            # message = encrypt(message,client)
+            client.send(message)
 
     def handle(client):
         while True:
             try:
                 message = client.recv(8192)
-                broadcast(message, client)
-                print ("\nbroadcoasted !!!\n----------------")
+                if len(message) == 0:
+                    print("ZEROWED")
+                    time.sleep(1)
+                else:
+                    print("\nMessage = ",message)
+                    # broadcast(message, client)
+
+
+                    # TO REVIEW FROM HERE
+                    print("\nIN : ", message,len(message))
+                    index = clients_list.index(client)
+                    AES_key = client_aes[index]
+                    print(index,AES_key)
+                    iv = message [:16]
+                    encrypted_data = message [16:]
+                    print("DECRYPT")
+                    cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
+                    message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
+
+                    # message = base64.b64decode(message)
+                    message = message.decode().replace('\r','')
+                    print(message)
+                    print("client = ",client)
+                    # message = decrypt(message,client)
+                    print("DECRYPTED")
+                    for client in clients_list:
+                        print("client = ",client)
+                        index = clients_list.index(client)
+                        AES_key = client_aes[index]
+                        message = bytes(str(message).encode())
+                        # #send ENCRYPT [ message ] using AES key and SIGN using private.key.client - HASHE of message
+                        # message = crypt(message)            
+                        l = 16 - (len(message) % 16)
+                        message = ("\r"*(l+16)).encode() + message
+                        # message = base64.b64encode(message)
+                        cipher = AES.new(AES_key, AES.MODE_CBC)
+                        message = cipher.encrypt(pad(message, AES.block_size))
+                        print("\n\nMESSAGE HA BEEN ENCRYPTED\n\n")
+                        print(message)
+                        # message = encrypt(message,client)
+                        client.send(message)
+
+
+                        print("SENF")
+                        iv = message [:16]
+                        encrypted_data = message [16:]
+                        print("DECRYPT")
+                        cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
+                        message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
+
+                        # message = base64.b64decode(message)
+                        message = message.decode().replace('\r','')
+                        print(message)
+                    print ("\nbroadcoasted !!!\n----------------")
             except:
                 index = clients_list.index(client)
                 clients_list.remove(client)
@@ -317,9 +382,34 @@ def clienting(host,port,nickname):
 
 
     def crypt(message):
+        # print("len message : ", len(message))
+        # print("message : ", (message))
+        # l = 16 - (len(message) % 16)
+        # message = ("\r"*(l+16)).encode() + message
+        # message = base64.b64encode(message)
+        # print("L = ",l)
+        # print("L + 16 = ",l+16)
+        # print("TEWT",message)
+        # print('\nKey Lenght : ', len(AES_key))
+        # print("len message : ", len(message))
+        # cipher = AES.new(AES_key, AES.MODE_CBC)
+        # message = cipher.encrypt(pad(message, AES.block_size))
+        # print("\n\nMESSAGE HA BEEN ENCRYPTED\n\n")
+        l = 16 - (len(message) % 16)
+        message = ("\r"*(l+16)).encode() + message
+        message = base64.b64encode(message)
+        print("L = ",l)
+        print("L + 16 = ",l+16)
+        print("TEWT",message)
+        print('\nKey Lenght : ', len(AES_key))
+        print("len message : ", len(message))
         cipher = AES.new(AES_key, AES.MODE_CBC)
         message = cipher.encrypt(pad(message, AES.block_size))
         print("\n\nMESSAGE HA BEEN ENCRYPTED\n\n")
+        
+        print(message)
+        print(len(message))
+        
         return encrypted
 
     def decrypt(message):
@@ -327,20 +417,28 @@ def clienting(host,port,nickname):
         encrypted_data = message [16:]
         cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
         message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
-        print("\n\nMESSAGE HA BEEN DECRYPTED\n\n")
+        message = message.decode().replace('\r','')
+        print("\n\nMESSAGE HA BEEN DECRYPTED\n\n",message,'\n\n')
         return message
 
     def receive():
         while True:
             try:
-                message = client.recv(8192).decode()
-                message = decrypt(message)
+                message = client.recv(8192)
+                # message = decrypt(message)
+                iv = message [:16]
+                encrypted_data = message [16:]
+                print("DECRYPT")
+                cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
+                message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
+
+                # message = base64.b64decode(message)
+                message = message.decode().replace('\r','')
                 print(message)
-                print(message[:4])
                 if message == 'NICK':
                     client.send(nickname.encode())
                 else:
-                    print(decrypt(message))
+                    print(message)
             except:
                 print("An error occured!")
                 client.close()
@@ -348,12 +446,34 @@ def clienting(host,port,nickname):
     def write():
         while True:
             message = R+f'{nickname}'+B+' : '+W+'{}'.format(input(R'>'+B+': '+W))
-            print(message)
+        
             if "QUIT" in message:
                 client.close()
                 exit(-1)
-            #send ENCRYPT [ message ] using AES key and SIGN using private.key.client - HASHE of message
-            client.send(crypt(message).encode())
+            message = bytes(str(message).encode())
+            # #send ENCRYPT [ message ] using AES key and SIGN using private.key.client - HASHE of message
+            # message = crypt(message)           
+            l = 16 - (len(message) % 16)
+            message = ("\r"*(l+16)).encode() + message
+            # message = base64.b64encode(message)
+            cipher = AES.new(AES_key, AES.MODE_CBC)
+            message = cipher.encrypt(pad(message, AES.block_size))
+            print("\n\nMESSAGE HA BEEN ENCRYPTED\n\n")
+            
+            print(message)
+            print(len(message))
+            client.send(message)
+            # print("SENF")
+            iv = message [:16]
+            encrypted_data = message [16:]
+            print("DECRYPT")
+            cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
+            message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
+
+            # message = base64.b64decode(message)
+            message = message.decode().replace('\r','')
+            print(message)
+            
 
     receive_thread = threading.Thread(target=receive)
     receive_thread.start()
