@@ -1,7 +1,7 @@
-VERSION = "0.1.11"
+VERSION =   "0.1.12"
+
 
 import argparse, socket, threading, time, base64
-from email import message
 
 
 
@@ -119,14 +119,12 @@ def serving(host,port):
                 ),
                 hashes.SHA256()
             )
-            print("\nGOOD HASH\n")
         except:
-            print("\nBAD HASH\n")
+            verif = False
+            message = R + 'NON LEGIT // ' + W
 
 
-        print("DECRYPTED")
         for client in clients_list:
-            print("client = ",client)
             index = clients_list.index(client)
             AES_key = client_aes[index]
             private_key = client_priv_serv[index]
@@ -169,19 +167,26 @@ def serving(host,port):
             # input("PAUSE")
             time.sleep(0.1)
             client.send(signature)
-
-
             
-            print("SENF")
             iv = message [:16]
             encrypted_data = message [16:]
-            print("DECRYPT")
             cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
             message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
 
             # message = base64.b64decode(message)
             message = message.decode().replace('\r','')
-            print(message)
+
+            
+            if verif == False:
+                verif = "hash check - " + R + "FAILED" + W + " - ❌"
+            else:
+                verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
+            print(f"""
+{B}╭╴{O}New message Received{W}
+{B}│{W}{verif}
+{B}│{W}hash received : {P}{str(hash[:-1])[-6:]}{W}
+{B}╰──{W}{message}""")
+
         print ("\nbroadcoasted !!!\n----------------")
 
     def handle(client):
@@ -228,7 +233,6 @@ def serving(host,port):
             # Send RSA public_key_plain
             payload = str(public_key_plain)
             client.send(str(payload).encode())
-            print("\n\nPAYLOAD {\n",payload, "\n}       WAS SEND\n\n")
             
             # Receive nickname
             message =client.recv(8192).decode()
@@ -251,12 +255,10 @@ def serving(host,port):
             # Decrypt message using private_key
             message_half_2 = private_key.decrypt(message,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
             message_half_2 = message_half_2[2:-1]
-            print(message_half_2,"\nHalf-1 GOOD\n")
 
             # Encapsulate both part
             message_complete = message_half_1 + message_half_2
             message_complete = message_complete.decode().replace("\\n","\n")
-            print("\n\n         Ok, pause, you just sent Y\n            and now you want to load the key \n")
             pre_public_key_client = message_complete.encode()
             public_key_client = serialization.load_pem_public_key(pre_public_key_client ,backend=default_backend())
             
@@ -269,7 +271,6 @@ def serving(host,port):
             
             # Send encrypted
             client.send(str(encrypted).encode())
-            print("\n\n AES_KEY sent \n\n")
             print (f"\nNew user connected at {address}")
             
             #appending all list with client info
@@ -514,18 +515,25 @@ def clienting(host,port,nickname):
                 ),
                 hashes.SHA256()
             )
-            print("\nGOOD HASH\n")
         except:
-            print("\nBAD HASH\n")
+            verif = False
 
-        return message
+        return message, verif, hash
 
     def receive():
         while True:
             try:
                 message = client.recv(8192)
-                message = decrypt(message)
-                print(message)
+                message, verif, hash = decrypt(message)
+                if verif == False:
+                    verif = "hash check - " + R + "FAILED" + W + " - ❌"
+                else:
+                    verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
+                print(f"""
+{B}╭╴{O}New message Received{W}
+{B}│{W}{verif}
+{B}│{W}hash received : {P}{str(hash[:-1])[-6:]}{W}
+{B}╰──{W}{message}""")
             except:
                 print("An error occured!")
                 client.close()
@@ -533,7 +541,7 @@ def clienting(host,port,nickname):
     
     def write():
         while True:
-            time.sleep(1)
+            # time.sleep(1)
             message = R+f'{nickname}'+B+' : '+W+'{}'.format(input(R'>'+B+': '+W))
         
             if "QUIT" in message:
