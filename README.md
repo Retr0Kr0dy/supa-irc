@@ -16,7 +16,7 @@ safe for use, encryption can be f?cked up, so, don't trust this script as unbrea
 
 - [INSTALLATION](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#installation)
     - [Requierements](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#requierements)
-    - [Docker]https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#docker()
+    - [Docker](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#docker)
 - [USAGE](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#usage)
     - [Options](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#options)
     - [Usage](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#usage-1)
