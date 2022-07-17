@@ -39,14 +39,14 @@ safe for use, encryption can be f?cked up, so, don't trust this script as unbrea
 ### Build 
 
 ```sh
-docker build -t supa-irc:v0.1 -f docker/Dockerfile
+docker build -t supa-irc:<version tag> -f docker/Dockerfile
 ```
 
 ###  Test 
 To test it within docker, use the following command :
 
 ```sh
-docker run -it -w /work -v ${PWD}:/work supa-irc:v0.1
+docker run -it -w /work -v ${PWD}:/work supa-irc:<version tag>
 ```
 
 
