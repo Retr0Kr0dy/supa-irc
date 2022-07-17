@@ -14,16 +14,16 @@ safe for use, encryption can be f?cked up, so, don't trust this script as unbrea
 
 # Summary 
 
-- [INSTALLATION]()
-    - [Requierements]()
-    - [Docker]()
-- [USAGE]()
-    - [Options]()
-    - [Usage]()
-- [HOW IT WORK ?!]()
-- [VERSION]()
-    - [0.x.x-alfa]()
-    - [1.x.x]()
+- [INSTALLATION](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#installation)
+    - [Requierements](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#requierements)
+    - [Docker]https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#docker()
+- [USAGE](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#usage)
+    - [Options](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#options)
+    - [Usage](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#usage-1)
+- [HOW IT WORK ?!](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#how-it-work-)
+- [VERSION](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#version)
+    - [0.x.x-alfa](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#0xx-alfa)
+    - [1.x.x](https://github.com/Retr0Kr0dy/supa-irc/blob/main/README.md#1xx)
 
 
 # INSTALLATION
@@ -87,4 +87,4 @@ blablabla
 
 ## 1.x.x
 
-### NOT RELEASED FOR NOW
+#### NOT RELEASED FOR NOW
