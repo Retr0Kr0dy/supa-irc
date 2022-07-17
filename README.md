@@ -30,9 +30,9 @@ safe for use, encryption can be f?cked up, so, don't trust this script as unbrea
 
 ## Requierements
     
-- [python3.10]()
-- [cryptography]()
-- [pycryptodome]()
+- [python3.10](https://www.python.org/downloads/release/python-3100/)
+- [cryptography](https://pypi.org/project/cryptography/)
+- [pycryptodome](https://pypi.org/project/pycryptodome/)
     
 ## Docker
 
