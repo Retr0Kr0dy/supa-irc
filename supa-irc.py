@@ -1,7 +1,9 @@
-VERSION =   "0.1.12"
+VERSION =   "0.1.13"
 
 
-import argparse, socket, threading, time, base64
+import argparse, socket, threading, time, base64, os
+from random import *
+
 
 
 
@@ -15,7 +17,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
-
 
 #color console
 W = '\033[0m'
@@ -68,6 +69,25 @@ GR = '\033[37m'
 ################################################
 ################### SERVER #####################
 def serving(host,port):
+
+    # def backup(message, typ):
+    #     print(G+f"Backuping...{O}{typ}"+W)
+    #     try:
+    #         os.makedirs("backup")
+    #     except:
+    #         pass
+    #     if typ == "MESS":
+
+    #         with open ('backup/message_backup.txt', 'rb') as f:
+    #             i = input("aaaaaaaaaaaaaa ? : ")
+    #             f.write(i)
+
+    #             print("good")
+    #             # f_read.write(message)
+            
+    #     print("backuped")
+        
+
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((host, port))
     server.listen()
@@ -108,6 +128,10 @@ def serving(host,port):
         digest = hashes.Hash(hashes.SHA256())
         digest.update(message.encode())
         hash = digest.finalize()
+
+        # backup(message[4:],message[:4])
+        message = message [4:]
+
 
         try:
             verif = public_key_client.verify(
@@ -176,7 +200,6 @@ def serving(host,port):
             # message = base64.b64decode(message)
             message = message.decode().replace('\r','')
 
-            
             if verif == False:
                 verif = "hash check - " + R + "FAILED" + W + " - ❌"
             else:
@@ -331,6 +354,7 @@ def serving(host,port):
 ################################################
 ################### CLIENT #####################
 def clienting(host,port,nickname):
+    indx = 0
     if nickname == None:
         nickname = input("Nickname >: ")
         print(nickname)
@@ -483,28 +507,22 @@ def clienting(host,port,nickname):
         return encrypted
 
     def decrypt(message):
-
         iv = message [:16]
         encrypted_data = message [16:]
-    
         cipher = AES.new(
             AES_key, AES.MODE_CBC, 
             iv=iv
         )
-
         message = unpad(
             cipher.decrypt(encrypted_data), 
             AES.block_size
         )
-
         message = message.decode().replace('\r','')
         
         signature = client.recv(8192)
-
         digest = hashes.Hash(hashes.SHA256())
         digest.update(message.encode())
         hash = digest.finalize()
-
         try:
             verif = public_key_server.verify(
                 signature,
@@ -517,9 +535,8 @@ def clienting(host,port,nickname):
             )
         except:
             verif = False
-
         return message, verif, hash
-
+   
     def receive():
         while True:
             try:
@@ -529,11 +546,27 @@ def clienting(host,port,nickname):
                     verif = "hash check - " + R + "FAILED" + W + " - ❌"
                 else:
                     verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
-                print(f"""
+                if message[:4] == "FILE":
+                    f = "temporary" + str(randrange(1000,9999))
+                    print(f)
+                    print("\nFLAG 13\n")
+                    print(message[4:])
+                    with open(f, 'wb') as f_outpute:
+                        f_outpute.write(bytes(str(message[4:]).encode()))
+                        print("FILE RECEIVED - " + f)
+                    print("flag 14")
+                    print(f"""
+{B}╭╴{O}New {R}FILE {O}Received{W}
+{B}│{W}{verif}
+{B}│{W}hash received : {P}{str(hash[:-1])[-6:]}{W}
+{B}╰──{W}{f}""")
+                else:
+                    print(f"""
 {B}╭╴{O}New message Received{W}
 {B}│{W}{verif}
 {B}│{W}hash received : {P}{str(hash[:-1])[-6:]}{W}
 {B}╰──{W}{message}""")
+
             except:
                 print("An error occured!")
                 client.close()
@@ -543,11 +576,15 @@ def clienting(host,port,nickname):
         while True:
             # time.sleep(1)
             message = R+f'{nickname}'+B+' : '+W+'{}'.format(input(R'>'+B+': '+W))
-        
             if "QUIT" in message:
                 client.close()
                 exit(-1)
-            message = bytes(str(message).encode())
+            elif message[-4:] == "FILE":
+                inpute = input(G + "Enter the file path you want to send : " + W)
+                with open (inpute, 'rb') as f_inpute:
+                    message = bytes(str("FILE").encode()) + f_inpute.read()
+            else:
+                message = bytes(str("MESS" + message).encode())
             message = crypt(message)           
             
 
