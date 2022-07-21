@@ -1,7 +1,8 @@
-VERSION =   "0.1.13"
+VERSION =   "0.2.1"
 
 
 import argparse, socket, threading, time, base64, os
+from inspect import signature
 from random import *
 
 
@@ -66,28 +67,18 @@ GR = '\033[37m'
 
 
 
+
+
+
+
+
+
+
+
+
 ################################################
 ################### SERVER #####################
 def serving(host,port):
-
-    # def backup(message, typ):
-    #     print(G+f"Backuping...{O}{typ}"+W)
-    #     try:
-    #         os.makedirs("backup")
-    #     except:
-    #         pass
-    #     if typ == "MESS":
-
-    #         with open ('backup/message_backup.txt', 'rb') as f:
-    #             i = input("aaaaaaaaaaaaaa ? : ")
-    #             f.write(i)
-
-    #             print("good")
-    #             # f_read.write(message)
-            
-    #     print("backuped")
-        
-
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind((host, port))
     server.listen()
@@ -98,67 +89,91 @@ def serving(host,port):
     client_pub_serv = []
     client_pub_client = []
 
-    def broadcast(message,client):
-        # TO REVIEW FROM HERE
-        print("\nIN : ", message,len(message))
+    def crypt(message, client):
         index = clients_list.index(client)
         AES_key = client_aes[index]
-        public_key_client = client_pub_client[index]
 
-        print(index,AES_key)
+        l = 16 - (len(message) % 16)
+        message = ("\r"*(l+16)).encode() + message
         
+        cipher = AES.new(
+            AES_key, 
+            AES.MODE_CBC
+        )
         
+        message = cipher.encrypt(                
+            pad(message,                 
+            AES.block_size)      
+        )
+
+        return message
+
+
+    def decrypt(message, client):
+
+        message = bytes(str(message).encode())
+
+        print("FLAG 1")
+
+        index = clients_list.index(client)
+        AES_key = client_aes[index]
+
+        print("FLAG 2")
+
         iv = message [:16]
         encrypted_data = message [16:]
     
+        print("FLAG 3")
+        input("aaaaaa")
+
         cipher = AES.new(
             AES_key, AES.MODE_CBC, 
             iv=iv
         )
+
+        print("FLAG 4")
 
         message = unpad(
             cipher.decrypt(encrypted_data), 
             AES.block_size
         )
 
+        print("FLAG 5")
+
         message = message.decode().replace('\r','')
+
+        print("mseea",message)
+
+        return message
         
-        signature = client.recv(8192)
+
+    def sign(message, client):        
+        index = clients_list.index(client)
+        private_key = client_priv_serv[index]
 
         digest = hashes.Hash(hashes.SHA256())
-        digest.update(message.encode())
+        digest.update(message)
         hash = digest.finalize()
 
-        # backup(message[4:],message[:4])
-        typ = message[:4]
-        message = message [4:]
-        print(message)
+        signature = private_key.sign(
+            hash,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
 
-        if typ == "FILE":
-            iL = message.split(";;;")
-            print(iL)
-            name = iL[0]
-            lenght = iL[1]
-            mes = []
-            for i in range(int(lenght)):
-                print(f"listening... for #{i}")
-                r = client.recv(8192)
-                s = client.recv(8192)
-                mes.append(r)
-            print("all part received successfully")
-            print(mes)
-            
+        return signature, hash
 
-            x = bytes(str("").encode())
-            for i in mes:
-                x += bytes(str(i).encode()[2:-1])
 
-            print(len(x))
+    def check_sign(message,signature, client):
+        index = clients_list.index(client)
+        public_key_client = client_pub_client[index]
 
-            print("file is good")
-            time.sleep(0.1)
-
-            broadcast_file(x,name,lenght,client)
+        digest = hashes.Hash(hashes.SHA256())
+        digest.update(message)
+        hash = digest.finalize()
 
         try:
             verif = public_key_client.verify(
@@ -173,104 +188,56 @@ def serving(host,port):
         except:
             verif = False
             message = R + 'NON LEGIT // ' + W
-
-
-        for client in clients_list:
-            index = clients_list.index(client)
-            AES_key = client_aes[index]
-            private_key = client_priv_serv[index]
-
-            message = bytes(str(message).encode())
-            
-            # Sign using hash of message
-            digest = hashes.Hash(hashes.SHA256())
-            digest.update(message)
-            hash = digest.finalize()
-
-            signature = private_key.sign(
-                hash,
-                padding.PSS(
-                    mgf=padding.MGF1(hashes.SHA256()),
-                    salt_length=padding.PSS.MAX_LENGTH
-                ),
-                hashes.SHA256()
-            )
-
-
-            l = 16 - (len(message) % 16)
-            message = ("\r"*(l+16)).encode() + message
-            
-            cipher = AES.new(
-                AES_key, 
-                AES.MODE_CBC
-            )
-            
-            message = cipher.encrypt(
-                    
-                pad(message, 
-                    
-                AES.block_size)
-                    
-            )
-
         
-            client.send(message)
-            # input("PAUSE")
-            time.sleep(0.1)
-            client.send(signature)
-            
-            iv = message [:16]
-            encrypted_data = message [16:]
-            cipher = AES.new(AES_key, AES.MODE_CBC, iv=iv)
-            message = unpad(cipher.decrypt(encrypted_data), AES.block_size)
+        return verif
 
-            # message = base64.b64decode(message)
-            message = message.decode().replace('\r','')
 
-            if verif == False:
-                verif = "hash check - " + R + "FAILED" + W + " - ❌"
-            else:
-                verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
-            print(f"""
-{B}╭╴{O}New message Received{W}
-{B}│{W}{verif}
-{B}│{W}hash received : {P}{str(hash[:-1])[-6:]}{W}
-{B}╰──{W}{message}""")
-
-        print ("\nbroadcoasted !!!\n----------------")
-
-    def broadcast_file(file,name,lenght,client):
-        info = f"FILE{name};;;{lenght}"
-        print(info)
-        print(len(file))
-        time.sleep(1)
-        broadcast(info, client)
-        print("info broadcasted")
-        n = 8100
-        chunks = [file[i:i+n] for i in range(0, len(file), n)]
-        print("goos")
-
-        print(len(chunks))
-        c = 0
-        for i in range(len(chunks)):
-            xxx = broadcast(bytes(str(i).encode()), client)
-            print(f"part {c} sended")
-            c += 1
-
+    def send(message,signature,client):
+        client.send(message)
+        client.send(signature)
 
 
     def handle(client):
         while True:
             try:
                 message = client.recv(8192)
+                print("RECEIVED")
                 if len(message) == 0:
                     print("ZEROWED")
                     index = clients_list.index(client)
                     client.close()
 
                 else:
-                    print("\nMessage = ",message)
-                    broadcast(message, client)
+                    print(message)
+                    message = decrypt(message,client)
+                    print(message)
+                    message = bytes(str(message).encode())
+
+                    print('éééé',message)
+
+                    if message[:4] == 'MESS':
+                        message = client.recv(8192)
+                        message = decrypt(message,client)
+                        signature = client.recv(8192)
+                        signature = decrypt(signature,client)
+                        verif = check_sign(message,signature,client)
+                        
+                        if verif == False:
+                            verif = "hash check - " + R + "FAILED" + W + " - ❌"
+                        else:
+                            verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
+
+                        for client in clients_list:
+                            signature, hash = sign(message,client)
+                            message = crypt(message,client)
+                            send(message,signature,client)
+
+                        print(f"""
+{B}╭╴{O}New message Received{W}
+{B}│{W}{verif}
+{B}│{W}hash received : {P}{str(hash[:-1])[-6:]}{W}
+{B}╰──{W}{message}""")
+
             except:
                 client.close()
                 index = clients_list.index(client)
@@ -280,70 +247,51 @@ def serving(host,port):
                 client_priv_serv.remove(client_priv_serv[index])
                 client_pub_serv.remove(client_pub_serv[index])
                 client_pub_client.remove(client_pub_client[index])
-                
                 break
 
     def main():
         while True:
-
-            # Accept connection
             client, address = server.accept()
-            
-            # Generate AES
             AES_key = get_random_bytes(32)
-            
-            # Generating RSA key
+
             private_key_plain = rsa.generate_private_key(public_exponent=65537, key_size=4096, backend=default_backend())
             private_key_plain = private_key_plain.private_bytes(encoding=serialization.Encoding.PEM,format=serialization.PrivateFormat.PKCS8,encryption_algorithm=serialization.NoEncryption())
             private_key = serialization.load_pem_private_key(private_key_plain,password=None,backend=default_backend())
             public_key = private_key.public_key()
             public_key_plain = public_key.public_bytes(encoding=serialization.Encoding.PEM,format=serialization.PublicFormat.SubjectPublicKeyInfo)
             public_key = serialization.load_pem_public_key(public_key_plain,backend=default_backend())
-            
-            # Send RSA public_key_plain
+   
             payload = str(public_key_plain)
             client.send(str(payload).encode())
-            
-            # Receive nickname
+
             message =client.recv(8192).decode()
             nickname = message
             time.sleep(0.2)
-            
-            # Receive first half of public_key_client
             message =client.recv(8192)
             
-            # Decrypt mesage using private_key
             message_half_1 = private_key.decrypt(message,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
             message_half_1 = message_half_1[2:-1]
             print(message_half_1,"\nHalf-1 GOOD\n")
 
             time.sleep(0.2)
-            
-            # Receive second half of public_key_client
             message =client.recv(8192)
             
-            # Decrypt message using private_key
             message_half_2 = private_key.decrypt(message,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
             message_half_2 = message_half_2[2:-1]
 
-            # Encapsulate both part
             message_complete = message_half_1 + message_half_2
             message_complete = message_complete.decode().replace("\\n","\n")
             pre_public_key_client = message_complete.encode()
             public_key_client = serialization.load_pem_public_key(pre_public_key_client ,backend=default_backend())
             
-            # Encrypt AESkey using publickeylient
             encrypted = public_key_client.encrypt((AES_key),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
             
-            # Encode encrypted using base64
             encrypted = base64.b64encode(encrypted)
             print("\n\nAES_KEY {\n",public_key_client, "\n}       WAS SUCCESSFULLY ENCRYPTED\n\n")
             
-            # Send encrypted
             client.send(str(encrypted).encode())
             print (f"\nNew user connected at {address}")
             
-            #appending all list with client info
             clients_nick.append(nickname)
             clients_list.append(client)
             client_aes.append(AES_key)
@@ -398,21 +346,28 @@ def serving(host,port):
 
 
 
+
+
+
+
+
+
+
+
+
+
 ################################################
 ################### CLIENT #####################
 def clienting(host,port,nickname):
-    indx = 0
     if nickname == None:
         nickname = input("Nickname >: ")
         print(nickname)
     else:
         print(nickname)
     
-    # Connect to server
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client.connect ((host, port))
 
-    # Receiving RSA public_key_server
     message = client.recv(8192).decode()
 
     public_key_server_plain = message[2:-1]
@@ -429,10 +384,8 @@ def clienting(host,port,nickname):
         str(pre_public_key_server).encode(), 
         backend=default_backend()
     )
-    
     print("\n\npublic_key_server {\n",public_key_server, "\n}       WAS RECIEVED\n\n")
-    
-    # Generate RSA keys
+
     private_key_plain = rsa.generate_private_key(
         public_exponent=65537, 
         key_size=4096, 
@@ -452,59 +405,36 @@ def clienting(host,port,nickname):
     )
     
     public_key = private_key.public_key()
-    
     public_key_plain = public_key.public_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     )
-    
     print("\n\nLOCAL public_key_server {\n",public_key_plain, "\n}       WAS GENERATED\n\n")
     
     public_key = serialization.load_pem_public_key(
         public_key_plain ,
         backend=default_backend()
     )
-    
-    print("\n\nENCRYPTING SHIT\n\n")
             
-    # Send nickname in plain text for fun
     client.send(str(nickname).encode())
-    print("\nNick send\n")
     time.sleep(0.1)
 
-    # Create first half of public_key
     message_half_1 = public_key_plain[:len(public_key_plain)//2]
     print(message_half_1,"\nHalf-1 GOOD\n")
 
-    # Encrypt message_half_1 using public_key_server
     encrypted = public_key_server.encrypt(str(message_half_1).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
 
-    # Send half 1
     client.send((encrypted))
     time.sleep(0.1)
-
-    # create first half of public_key
     message_half_2 = public_key_plain[len(public_key_plain)//2:]
     print(message_half_2,"\nHalf-2 GOOD\n")
-
-    # Encrypt message_half_1 using public_key_server
     encrypted = public_key_server.encrypt(str(message_half_2).encode(),padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
-    
-    # Send half 2
     client.send((encrypted))
 
-    #Receive AES key
     message = client.recv(8192).decode()
-    
-    # Decode message using base64
     message = base64.b64decode(message[2:-1])
-    print("\n\nBase64 encoded string {\n",public_key, "\n}\n\n")
-
-    
-    # Decrypt message using private_key
     message = private_key.decrypt(message,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
     
-    # Save devrypted message as AES key
     AES_key = message
     print("\n\nAES_KEY {\n",AES_key, "\n}\n\n")
     
@@ -512,9 +442,8 @@ def clienting(host,port,nickname):
     print("\n\nINITIALISATION SUCCESSFULL\n\n")
 
 
-    def crypt(message):
-        
-        # Sign using hash of message
+
+    def sign(message):        
         digest = hashes.Hash(hashes.SHA256())
         digest.update(message)
         hash = digest.finalize()
@@ -528,7 +457,32 @@ def clienting(host,port,nickname):
             hashes.SHA256()
         )
 
+        return signature, hash
 
+
+    def check_sign(message,signature):
+        digest = hashes.Hash(hashes.SHA256())
+        digest.update(message)
+        hash = digest.finalize()
+
+        try:
+            verif = public_key.verify(
+                signature,
+                hash,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+        except:
+            verif = False
+            message = R + 'NON LEGIT // ' + W
+        
+        return verif
+
+
+    def crypt(message):       
         l = 16 - (len(message) % 16)
         message = ("\r"*(l+16)).encode() + message
         
@@ -542,80 +496,57 @@ def clienting(host,port,nickname):
             AES.block_size)
         )
 
-        client.send(message)
-        # input("PAUSE")
         time.sleep(0.1)
-        client.send(signature)
 
-        return encrypted
-
-    def decrypt(message):
         iv = message [:16]
         encrypted_data = message [16:]
+
         cipher = AES.new(
             AES_key, AES.MODE_CBC, 
             iv=iv
         )
+
         message = unpad(
             cipher.decrypt(encrypted_data), 
             AES.block_size
         )
         message = message.decode().replace('\r','')
         
-        signature = client.recv(8192)
-        digest = hashes.Hash(hashes.SHA256())
-        digest.update(message.encode())
-        hash = digest.finalize()
-        try:
-            verif = public_key_server.verify(
-                signature,
-                hash,
-                padding.PSS(
-                    mgf=padding.MGF1(hashes.SHA256()),
-                    salt_length=padding.PSS.MAX_LENGTH
-                ),
-                hashes.SHA256()
-            )
-        except:
-            verif = False
-        return message, verif, hash
-   
+        print("clear\n",message)
+
+        return encrypted
+
+
+    def decrypt(message):
+        iv = message [:16]
+        encrypted_data = message [16:]
+
+        cipher = AES.new(
+            AES_key, AES.MODE_CBC, 
+            iv=iv
+        )
+
+        message = unpad(
+            cipher.decrypt(encrypted_data), 
+            AES.block_size
+        )
+        message = message.decode().replace('\r','')
+        
+        return message
+
     def receive():
         while True:
             try:
                 message = client.recv(8192)
-                message, verif, hash = decrypt(message)
+                signature = client.recv(8192)
+                message = decrypt(message)
+                verif, hash = check_sign(message,signature)
                 if verif == False:
                     verif = "hash check - " + R + "FAILED" + W + " - ❌"
                 else:
                     verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
-                if message[:4] == "FILE":
-                    message = message[4:]
-                    iL = message.split(";;;")
-                    name = iL[0]
-                    lenght = iL[1]
-                    print(iL)
-                    mes = []
-                    for i in range(int(lenght)):
-                        print(f"listening... for #{i}")
-                        r = client.recv(8192)
-                        mes.append(r)
-                    x = ""
-                    for i in mes:
-                        print(x)
-                        x += i
-                    
-                    
-                    with open(name, 'wb') as f_outpute:
-                        f_outpute.write(bytes(str(x).encode()))
-                        print("FILE RECEIVED - " + name)
-                    print(f"""
-{B}╭╴{O}New {R}FILE {O}Received{W}
-{B}│{W}{verif}
-{B}│{W}hash received : {P}{str(hash[:-1])[-6:]}{W}
-{B}╰──{W}{name}""")
-                else:
-                    print(f"""
+
+                print(f"""
 {B}╭╴{O}New message Received{W}
 {B}│{W}{verif}
 {B}│{W}hash received : {P}{str(hash[:-1])[-6:]}{W}
@@ -625,50 +556,79 @@ def clienting(host,port,nickname):
                 print("An error occured!")
                 client.close()
                 break
-    
+
     def write():
-        while True:
-            # time.sleep(1)
-            message = R+f'{nickname}'+B+' : '+W+'{}'.format(input(R'>'+B+': '+W))
-            if "QUIT" in message:
-                client.close()
-                exit(-1)
-            elif message[-4:] == "FILE":
-                inpute = input(G + "Enter the file path you want to send : " + W)
+        message = R+f'{nickname}'+B+' : '+W+'{}'.format(input(R'>'+B+': '+W))
+        if "QUIT" in message:
+            client.close()
+            exit(-1)
+        elif message[-4:] == "FILE":
+            inpute = input(G + "Enter the file path you want to send : " + W)
 
-                with open (inpute, 'rb') as f_inpute:
-                    message = f_inpute.read()
+            with open (inpute, 'rb') as f_inpute:
+                message = f_inpute.read()
+            
+                infoA = "FILE"
+                iB = []
+                iba = inpute.split('/')
+                for a in iba:
+                    iB.append(a)
+                infoB = iB[len(iB)-1]
+                infoC = ( len(message) // 8100 ) + 1
+                info = f"{infoA}{infoB};;;{infoC}"
                 
-                    infoA = "FILE"
-                    iB = []
-                    iba = inpute.split('/')
-                    for a in iba:
-                        iB.append(a)
-                    infoB = iB[len(iB)-1]
-                    infoC = ( len(message) // 8100 ) + 1
-                    info = f"{infoA}{infoB};;;{infoC}"
-                    info = crypt(bytes(str(info).encode()))
-                    print(len(message),'LENGHT')
+                n = 8100
+                chunks = [message[i:i+n] for i in range(0, len(message), n)]
+                c = 0
 
-                    n = 8100
-                    chunks = [message[i:i+n] for i in range(0, len(message), n)]
+                client.send(info)
 
-                    c = 0
-                    for i in range(len(chunks)):
-                        xxx = crypt(bytes(str(i).encode()))
-                        print(f"part {c} sended")
-                        c += 1
+                for i in range(len(chunks)):
+                    i = bytes(str(i).encode())
+                    signature = sign(i)
+                    message = crypt(i)
 
-            else:
-                message = bytes(str("MESS" + message).encode())
-            message = crypt(message)           
+                    client.send(message)
+                    client.send(signature)
+
+                    print(f"part {c} sended")
+                    c += 1
+        else:
+            info = crypt(bytes(str(f"MESS;;;{nickname}").encode()))
+            print("AAwwAA\n",info)
+            aaa  = decrypt(info)
+
+            
+            signature =crypt(bytes(str(sign(bytes(str(message).encode()))).encode()))
+            message = crypt(bytes(str(message).encode()))
             
 
+            client.send(info)
+            time.sleep(0.1)
+
+            
+
+            client.send(message)
+            time.sleep(0.1)
+            client.send(signature)
+
+
+
+    
     receive_thread = threading.Thread(target=receive)
     receive_thread.start()
 
     write_thread = threading.Thread(target=write)
     write_thread.start()
+
+
+
+
+
+
+
+
+
 
 
 
