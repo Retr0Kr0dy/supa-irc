@@ -130,8 +130,35 @@ def serving(host,port):
         hash = digest.finalize()
 
         # backup(message[4:],message[:4])
+        typ = message[:4]
         message = message [4:]
+        print(message)
 
+        if typ == "FILE":
+            iL = message.split(";;;")
+            print(iL)
+            name = iL[0]
+            lenght = iL[1]
+            mes = []
+            for i in range(int(lenght)):
+                print(f"listening... for #{i}")
+                r = client.recv(8192)
+                s = client.recv(8192)
+                mes.append(r)
+            print("all part received successfully")
+            print(mes)
+            
+
+            x = bytes(str("").encode())
+            for i in mes:
+                x += bytes(str(i).encode()[2:-1])
+
+            print(len(x))
+
+            print("file is good")
+            time.sleep(0.1)
+
+            broadcast_file(x,name,lenght,client)
 
         try:
             verif = public_key_client.verify(
@@ -211,6 +238,26 @@ def serving(host,port):
 {B}╰──{W}{message}""")
 
         print ("\nbroadcoasted !!!\n----------------")
+
+    def broadcast_file(file,name,lenght,client):
+        info = f"FILE{name};;;{lenght}"
+        print(info)
+        print(len(file))
+        time.sleep(1)
+        broadcast(info, client)
+        print("info broadcasted")
+        n = 8100
+        chunks = [file[i:i+n] for i in range(0, len(file), n)]
+        print("goos")
+
+        print(len(chunks))
+        c = 0
+        for i in range(len(chunks)):
+            xxx = broadcast(bytes(str(i).encode()), client)
+            print(f"part {c} sended")
+            c += 1
+
+
 
     def handle(client):
         while True:
@@ -491,14 +538,10 @@ def clienting(host,port,nickname):
         )
         
         message = cipher.encrypt(
-                
             pad(message, 
-                
             AES.block_size)
-                
         )
 
-    
         client.send(message)
         # input("PAUSE")
         time.sleep(0.1)
@@ -547,19 +590,30 @@ def clienting(host,port,nickname):
                 else:
                     verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
                 if message[:4] == "FILE":
-                    f = "temporary" + str(randrange(1000,9999))
-                    print(f)
-                    print("\nFLAG 13\n")
-                    print(message[4:])
-                    with open(f, 'wb') as f_outpute:
-                        f_outpute.write(bytes(str(message[4:]).encode()))
-                        print("FILE RECEIVED - " + f)
-                    print("flag 14")
+                    message = message[4:]
+                    iL = message.split(";;;")
+                    name = iL[0]
+                    lenght = iL[1]
+                    print(iL)
+                    mes = []
+                    for i in range(int(lenght)):
+                        print(f"listening... for #{i}")
+                        r = client.recv(8192)
+                        mes.append(r)
+                    x = ""
+                    for i in mes:
+                        print(x)
+                        x += i
+                    
+                    
+                    with open(name, 'wb') as f_outpute:
+                        f_outpute.write(bytes(str(x).encode()))
+                        print("FILE RECEIVED - " + name)
                     print(f"""
 {B}╭╴{O}New {R}FILE {O}Received{W}
 {B}│{W}{verif}
 {B}│{W}hash received : {P}{str(hash[:-1])[-6:]}{W}
-{B}╰──{W}{f}""")
+{B}╰──{W}{name}""")
                 else:
                     print(f"""
 {B}╭╴{O}New message Received{W}
@@ -581,8 +635,30 @@ def clienting(host,port,nickname):
                 exit(-1)
             elif message[-4:] == "FILE":
                 inpute = input(G + "Enter the file path you want to send : " + W)
+
                 with open (inpute, 'rb') as f_inpute:
-                    message = bytes(str("FILE").encode()) + f_inpute.read()
+                    message = f_inpute.read()
+                
+                    infoA = "FILE"
+                    iB = []
+                    iba = inpute.split('/')
+                    for a in iba:
+                        iB.append(a)
+                    infoB = iB[len(iB)-1]
+                    infoC = ( len(message) // 8100 ) + 1
+                    info = f"{infoA}{infoB};;;{infoC}"
+                    info = crypt(bytes(str(info).encode()))
+                    print(len(message),'LENGHT')
+
+                    n = 8100
+                    chunks = [message[i:i+n] for i in range(0, len(message), n)]
+
+                    c = 0
+                    for i in range(len(chunks)):
+                        xxx = crypt(bytes(str(i).encode()))
+                        print(f"part {c} sended")
+                        c += 1
+
             else:
                 message = bytes(str("MESS" + message).encode())
             message = crypt(message)           
