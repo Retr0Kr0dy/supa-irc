@@ -1,4 +1,4 @@
-VERSION =   "0.2.1"
+VERSION =   "0.2.2"
 
 
 import argparse, socket, threading, time, base64, os
@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
+from sympy import content
 
 #color console
 W = '\033[0m'
@@ -162,8 +163,6 @@ def serving(host,port):
         public_key_client = client_pub_client[index]
 
 
-        print(message)
-
         message = bytes(str(message).encode())
 
         signature = bytes(str(signature).encode()[2:-1])
@@ -211,7 +210,8 @@ def serving(host,port):
                 else:
                     message = decrypt(message,client)
                     # message = bytes(str(message).encode())
-
+                    
+                    print(message)
                     print(message[:4])
 
                     if message[:4] == 'MESS':
@@ -241,6 +241,130 @@ def serving(host,port):
                             message = crypt(bytes(str(message).encode()),client)
                             send(message,signature,client)
                         
+
+                    if message[:4] == 'FILE':
+                        message = message[4:].split(';;;')
+                        name = message[0]
+                        lenght = message[1]
+                        t_port = int(message[2])
+                        signature = client.recv(8192)
+                        message = b''
+                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                            print(s)
+                            s.bind((host, t_port))
+                            print(f"host on {host}:{t_port}")
+                            s.listen()
+                            conn, addr = s.accept()
+                            message = b''
+                            with conn:
+                                print(f"Connected by {addr}")
+                                while True:
+                                    aa = conn.recv(1024)
+                                    if not aa:
+                                        break
+                                    message = message + aa
+                                    print(str((len(message) * 100) / int(lenght))[:6], ' %')
+                                    
+                            time.sleep(0.1)
+                            s.close()
+                      
+                        index = clients_list.index(client)
+                        AES_key = client_aes[index]
+
+                        iv = message [:16]
+                        encrypted_data = message [16:]
+
+                        cipher = AES.new(AES_key, AES.MODE_CBC,iv=iv)
+                        message = unpad(cipher.decrypt(encrypted_data),AES.block_size)
+
+                        message = message.replace('AAAA'.encode(),''.encode())
+                        
+                        signature = decrypt(signature,client)
+                        verif, hash = check_sign(message,signature,client)
+                        
+                        if verif == False:
+                            verif = "hash check - " + R + "FAILED" + W + " - ❌"
+                        else:
+                            verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
+
+                        file = "file/" + name
+                        with open(file, 'wb') as wf:
+                            wf.write(message)
+
+                        print("ALL GOOD")
+    
+                    elif message[:4] == 'GETF':
+                        import glob
+                        content = glob.glob("file/*")
+                        lay = ""
+                        for i in content:
+                            lay = lay + i[5:] + "\n" 
+                        print("\n\n",lay)
+                        lay = crypt(bytes(str(lay).encode()),client)
+                        print("crypted")
+                        print(lay)
+                        client.send(lay)
+                        print("check")
+                        m = client.recv(8192)
+                        m = decrypt(bytes(str(m).encode()),client)
+                        print(m)
+                        m = content[int(m)]
+                        try:
+                            with open(m, 'rb') as r:
+                                message = r.read()
+                                print(message[:200])
+                                lll = len(message)
+                                infoA = "FILE"
+                                iB = []
+                                iba = r.split('/')
+                                for a in iba:
+                                    iB.append(a)
+                                infoB = iB[len(iB)-1]
+                                infoC = len(message)
+                                infoD = 9878
+                                info = f"{infoA}{infoB};;;{infoC};;;{infoD}"
+                                sigi = sign(bytes(str(info).encode()),client)
+                                sigm = sign(bytes(str(message).encode()),client)
+
+                                info = crypt(bytes(str(info).encode()),client)
+                                sigi = crypt(bytes(str(sigi).encode()),client)
+
+
+
+                                l = 16 - (len(message) % 16)
+                                message = ("AAAA"*(l+16)).encode() + message       
+                            
+                                cipher = AES.new(AES_key,AES.MODE_CBC)
+                                message = cipher.encrypt(pad(message,AES.block_size))
+
+                                sigm = crypt(bytes(str(sigm).encode()))
+
+
+                                client.send(info)
+                                time.sleep(0.1)
+                                client.send(sigm)
+                                time.sleep(0.5)
+
+                                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                                    s.connect((host, infoD))
+                                    print(f"send to {host}:{infoD}")
+                                    s.sendall(message)
+                                    s.close()
+
+                                print(lll)
+                                print("END")
+                                time.sleep(0.1)
+                        except:
+                            print("File sending failed")
+
+                            
+
+                    
+
+                   
+
+                        
+
 
             except:
                 client.close()
@@ -492,10 +616,11 @@ def clienting(host,port,nickname):
         return verif, hash
 
 
-    def crypt(message):       
+    def crypt(message):
+
         l = 16 - (len(message) % 16)
-        message = ("\r"*(l+16)).encode() + message
-        
+        message = ("\r"*(l+16)).encode() + message       
+       
         cipher = AES.new(
             AES_key, 
             AES.MODE_CBC
@@ -525,20 +650,15 @@ def clienting(host,port,nickname):
             AES.block_size
         )
 
+        
         message = message.decode().replace('\r','')
         
+
         return message
 
     def receive():
         while True:
             try:
-                # info = client.recv(8192)
-                # print("info",info)
-                # info = decrypt(info)
-                # print("INFO",info)
-
-
-
                 message = client.recv(8192)
 
                 if len(message) == 0:
@@ -550,6 +670,7 @@ def clienting(host,port,nickname):
                 time.sleep(0.1)
                 signature = client.recv(8192)
                 message = decrypt(message)
+               
                 signature = decrypt(signature)
                 
               
@@ -581,38 +702,130 @@ def clienting(host,port,nickname):
                 #  NOT WORKING
             ##############################################
             elif message[-4:] == "FILE":
-                inpute = input(G + "Enter the file path you want to send : " + W)
-
+                def takefile():
+                        try:
+                            inpute = input(G + "Enter the file path you want to send : " + W)
+                            return inpute
+                        except:
+                            print(R"FAILED - Can't open file\n")
+                            takefile
+                inpute = takefile()
+                print(inpute)       
                 with open (inpute, 'rb') as f_inpute:
                     message = f_inpute.read()
-                
+                    print(message[:200])
+                    lll = len(message)
                     infoA = "FILE"
                     iB = []
                     iba = inpute.split('/')
                     for a in iba:
                         iB.append(a)
                     infoB = iB[len(iB)-1]
-                    infoC = ( len(message) // 8100 ) + 1
-                    info = f"{infoA}{infoB};;;{infoC}"
-                    
-                    n = 8100
-                    chunks = [message[i:i+n] for i in range(0, len(message), n)]
-                    c = 0
+                    infoC = len(message)
+                    infoD = 9878
+                    info = f"{infoA}{infoB};;;{infoC};;;{infoD}"
+                    sigi = sign(bytes(str(info).encode()))
+                    sigm = sign(bytes(str(message).encode()))
+
+                    info = crypt(bytes(str(info).encode()))
+                    sigi = crypt(bytes(str(sigi).encode()))
+
+
+
+                    l = 16 - (len(message) % 16)
+                    message = ("AAAA"*(l+16)).encode() + message       
+                
+                    cipher = AES.new(AES_key,AES.MODE_CBC)
+                    message = cipher.encrypt(pad(message,AES.block_size))
+
+                    sigm = crypt(bytes(str(sigm).encode()))
+
 
                     client.send(info)
+                    time.sleep(0.1)
+                    client.send(sigm)
+                    time.sleep(0.5)
 
-                    for i in range(len(chunks)):
-                        i = bytes(str(i).encode())
-                        signature = sign(i)
-                        message = crypt(i)
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.connect((host, infoD))
+                        print(f"send to {host}:{infoD}")
+                        s.sendall(message)
+                        s.close()
 
-                        client.send(message)
-                        client.send(signature)
+                    print(lll)
+                    print("END")
+                    time.sleep(0.1)
 
-                        print(f"part {c} sended")
-                        c += 1
+            elif message[-4:] == "GETF":
+                message = crypt(bytes(str(message[-4:]).encode()))
+                client.send(message)
+                print("sendet")
+
+                lay = decrypt(client.recv(8192))
+                print("Content of server ;\n")
+                ch = []
+                for i in lay.splitlines():
+                    ch.append(i)
+                    print(f'[{len(ch)-1}] - {ch[len(ch)-1]}')
+                c = input("\nEnter the indx of the file you want to download : ")
+                c = crypt(bytes(str(c).encode()))
+                client.send(c)
+                
+
+                
+                message = client.recv(8192).decode()
+                print(message)
+                message = message[4:].split(';;;')
+                print(message)
+                name = message[0]
+                lenght = message[1]
+                t_port = int(message[2])
+                signature = client.recv(8192)
+                message = b''
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    print(s)
+                    s.bind((host, t_port))
+                    print(f"host on {host}:{t_port}")
+                    s.listen()
+                    conn, addr = s.accept()
+                    message = b''
+                    with conn:
+                        print(f"Connected by {addr}")
+                        while True:
+                            aa = conn.recv(1024)
+                            if not aa:
+                                break
+                            message = message + aa
+                            print(str((len(message) * 100) / int(lenght))[:6], ' %')
+                            
+                    time.sleep(0.1)
+                    s.close()
+                
+                iv = message [:16]
+                encrypted_data = message [16:]
+
+                cipher = AES.new(AES_key, AES.MODE_CBC,iv=iv)
+                message = unpad(cipher.decrypt(encrypted_data),AES.block_size)
+
+                message = message.replace('AAAA'.encode(),''.encode())
+                
+                signature = decrypt(signature)
+                verif, hash = check_sign(message,signature)
+                
+                if verif == False:
+                    verif = "hash check - " + R + "FAILED" + W + " - ❌"
+                else:
+                    verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
+
+                file = name
+                with open(file, 'wb') as wf:
+                    wf.write(message)
+
+                print("ALL GOOD")
+                
+               
             ##############################################
-            else:
+            else:                
                 info = crypt(bytes(str(f"MESS;;;{nickname}").encode()))
 
                 sig,hsh = sign(bytes(str(message).encode()))
@@ -620,8 +833,10 @@ def clienting(host,port,nickname):
                 message = crypt(bytes(str(message).encode()))
 
                 sss = decrypt(signature)
+        
                 print(sss)
                 verif = check_sign(decrypt(message),sss)
+
                 if verif == False:
                     verif = "hash check - " + R + "FAILED" + W + " - ❌"
                 else:
