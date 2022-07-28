@@ -1,4 +1,4 @@
-VERSION =   "0.2.2"
+VERSION =   "0.2.2-2"
 
 
 import argparse, socket, threading, time, base64, os
@@ -256,15 +256,27 @@ def serving(host,port):
                             s.listen()
                             conn, addr = s.accept()
                             message = b''
+                            
+
+                            import time
+                            start_time = time.time()
+
                             with conn:
                                 print(f"Connected by {addr}")
+                                perc = 0
+                                on_s = time.time()
+                                                                    
                                 while True:
                                     aa = conn.recv(1024)
                                     if not aa:
                                         break
                                     message = message + aa
-                                    print(str((len(message) * 100) / int(lenght))[:6], ' %')
-                                    
+                                    if int(time.time()-on_s) >= 5:
+                                        now_time = (time.time() - start_time)   
+                                        on_s = time.time()
+                                        perc = len(message) * 100 / int(lenght)
+                                        print(perc, ' %\t\t\t\t\t\t\ttime : ',int(now_time))
+                                print(time.time() - start_time)
                             time.sleep(0.1)
                             s.close()
                       
