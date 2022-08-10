@@ -1,7 +1,7 @@
-VERSION =   "0.2.2-2"
+VERSION =   "0.2.2-3"
 
 
-import argparse, socket, threading, time, base64, os
+import argparse, socket, threading, time, base64, os, glob,time
 from random import *
 
 
@@ -17,7 +17,6 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
-from sympy import content
 
 #color console
 W = '\033[0m'
@@ -201,6 +200,10 @@ def serving(host,port):
         while True:
             try:
                 message = client.recv(8192)
+
+                index = clients_list.index(client)
+                AES_key = client_aes[index]
+            
                 print("RECEIVED")
                 if len(message) == 0:
                     print("ZEROWED")
@@ -257,56 +260,86 @@ def serving(host,port):
                             conn, addr = s.accept()
                             message = b''
                             
-
-                            import time
                             start_time = time.time()
 
                             with conn:
                                 print(f"Connected by {addr}")
                                 perc = 0
                                 on_s = time.time()
-                                                                    
+                                ml =[]                         
                                 while True:
                                     aa = conn.recv(1024)
+                                    ml.append(aa)
                                     if not aa:
                                         break
-                                    message = message + aa
-                                    if int(time.time()-on_s) >= 5:
-                                        now_time = (time.time() - start_time)   
-                                        on_s = time.time()
-                                        perc = len(message) * 100 / int(lenght)
-                                        print(perc, ' %\t\t\t\t\t\t\ttime : ',int(now_time))
+                
+                                    # if int(time.time()- on_s) >= 1:
+                                    now_time = (time.time() - start_time)   
+                                    on_s = time.time()
+                                    perc = len(ml) * 100 / (int(lenght) / 1024)
+                                    print(perc, ' %\t\t\t\t\t\t\ttime : ',int(now_time))
+                                    # else:
+                                    #     pass
                                 print(time.time() - start_time)
+                                print(len(ml))
+                                def fwf(ml):
+                                    message = b''
+                                    print(len(ml))
+                                    for i in ml:
+                                        message = message + i
+                                        print(".",end="")
+                                    
+                                        perc = len(message) * 100 / int(lenght)
+                                        print(perc)
+        
+                                    print(len(message), lenght)
+                                    iv = message [:16]
+                                    encrypted_data = message [16:]
+                                    print("a")
+
+                                    cipher = AES.new(AES_key, AES.MODE_CBC,iv=iv)
+                                    message = unpad(cipher.decrypt(encrypted_data),AES.block_size)
+                                    print("a")
+
+
+                                    message = message.replace('AAAA'.encode(),''.encode())
+                                
+                                    file = "file/" + name
+                                    with open(file, 'wb') as wf:
+                                        wf.write(message)
+                                    print("FILE CREATED")
+
+                                getf_thread = threading.Thread(target=fwf, args=(ml,))
+                                getf_thread.start()
+                                    
+                                print(message[200:])
                             time.sleep(0.1)
                             s.close()
                       
-                        index = clients_list.index(client)
-                        AES_key = client_aes[index]
-
-                        iv = message [:16]
-                        encrypted_data = message [16:]
-
-                        cipher = AES.new(AES_key, AES.MODE_CBC,iv=iv)
-                        message = unpad(cipher.decrypt(encrypted_data),AES.block_size)
-
-                        message = message.replace('AAAA'.encode(),''.encode())
                         
-                        signature = decrypt(signature,client)
-                        verif, hash = check_sign(message,signature,client)
-                        
-                        if verif == False:
-                            verif = "hash check - " + R + "FAILED" + W + " - ❌"
-                        else:
-                            verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
+                        # iv = message [:16]
+                        # encrypted_data = message [16:]
 
-                        file = "file/" + name
-                        with open(file, 'wb') as wf:
-                            wf.write(message)
+                        # cipher = AES.new(AES_key, AES.MODE_CBC,iv=iv)
+                        # message = unpad(cipher.decrypt(encrypted_data),AES.block_size)
+
+                        # message = message.replace('AAAA'.encode(),''.encode())
+                        
+                        # signature = decrypt(signature,client)
+                        # verif, hash = check_sign(message,signature,client)
+                        
+                        # if verif == False:
+                        #     verif = "hash check - " + R + "FAILED" + W + " - ❌"
+                        # else:
+                        #     verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
+
+                        # file = "file/" + name
+                        # with open(file, 'wb') as wf:
+                        #     wf.write(message)
 
                         print("ALL GOOD")
     
                     elif message[:4] == 'GETF':
-                        import glob
                         content = glob.glob("file/*")
                         lay = ""
                         for i in content:
