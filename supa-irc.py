@@ -1,4 +1,4 @@
-VERSION =   "0.2.2-3"
+VERSION =   "0.2.3"
 
 
 import argparse, socket, threading, time, base64, os, glob,time
@@ -282,15 +282,18 @@ def serving(host,port):
                                     #     pass
                                 print(time.time() - start_time)
                                 print(len(ml))
+                                
+                                
                                 def fwf(ml):
                                     message = b''
-                                    print(len(ml))
-                                    for i in ml:
-                                        message = message + i
-                                        print(".",end="")
+                                    # print(len(ml))
+                                    # for i in ml:
+                                    #     message = message + i
+                                    #     print(".",end="")
                                     
-                                        perc = len(message) * 100 / int(lenght)
-                                        print(perc)
+                                    #     perc = len(message) * 100 / int(lenght)
+                                    #     print(perc)
+                                    message = b''.join(ml)
         
                                     print(len(message), lenght)
                                     iv = message [:16]
