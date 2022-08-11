@@ -1,4 +1,4 @@
-VERSION =   "0.2.3-1"
+VERSION =   "0.2.3-2"
 
 
 import argparse, socket, threading, time, base64, os, glob,time
@@ -774,11 +774,13 @@ def clienting(host,port,nickname):
                     infoC = len(message)
                     infoD = 9878
                     info = f"{infoA}{infoB};;;{infoC};;;{infoD}"
+                    print("[|] - Signing payload...")
                     sigi = sign(bytes(str(info).encode()))
-                    sigm = sign(bytes(str(message).encode()))
-
+                    sigm = sign(bytes(str('random shit cuz it take a crazy amount of time to sign 100GB').encode()))
+                    print("[|] - Pyload signed...")
                     info = crypt(bytes(str(info).encode()))
                     sigi = crypt(bytes(str(sigi).encode()))
+                    print("[|] - Payload encrypted...")
 
                     print("[|] - Encrypting your file, please wait...")
                     print(time.time() - t1, ' s')
