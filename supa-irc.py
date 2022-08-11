@@ -1,4 +1,4 @@
-VERSION =   "0.2.3"
+VERSION =   "0.2.3-1"
 
 
 import argparse, socket, threading, time, base64, os, glob,time
@@ -246,16 +246,19 @@ def serving(host,port):
                         
 
                     if message[:4] == 'FILE':
+                        t2 = time.time()
+                        print("[;] - Receiving info of file")
                         message = message[4:].split(';;;')
                         name = message[0]
                         lenght = message[1]
                         t_port = int(message[2])
                         signature = client.recv(8192)
+                        print("[:] - Info successfully received")
                         message = b''
+                        t1 = time.time()
+                        print("[;] - Receiving file")
                         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                            print(s)
                             s.bind((host, t_port))
-                            print(f"host on {host}:{t_port}")
                             s.listen()
                             conn, addr = s.accept()
                             message = b''
@@ -263,7 +266,6 @@ def serving(host,port):
                             start_time = time.time()
 
                             with conn:
-                                print(f"Connected by {addr}")
                                 perc = 0
                                 on_s = time.time()
                                 ml =[]                         
@@ -272,50 +274,48 @@ def serving(host,port):
                                     ml.append(aa)
                                     if not aa:
                                         break
-                
-                                    # if int(time.time()- on_s) >= 1:
-                                    now_time = (time.time() - start_time)   
-                                    on_s = time.time()
-                                    perc = len(ml) * 100 / (int(lenght) / 1024)
-                                    print(perc, ' %\t\t\t\t\t\t\ttime : ',int(now_time))
-                                    # else:
-                                    #     pass
-                                print(time.time() - start_time)
-                                print(len(ml))
+                                    if int(time.time() - on_s) >= 1:
+                                        now_time = (time.time() - start_time)   
+                                        on_s = time.time()
+                                        perc = len(ml) * 100 / (int(lenght) / 1024)
+                                        print(int(perc), ' %\t\t\ttime : ',int(now_time))
+                                print("[-] - File succesfully received ")
+                                print(time.time() - t1, ' s')
+                                print("[|] - Decrypting file...")
                                 
-                                
-                                def fwf(ml):
+                                def fwf(ml,t2):
+
+                                    t1 = time.time()
                                     message = b''
-                                    # print(len(ml))
-                                    # for i in ml:
-                                    #     message = message + i
-                                    #     print(".",end="")
-                                    
-                                    #     perc = len(message) * 100 / int(lenght)
-                                    #     print(perc)
                                     message = b''.join(ml)
         
-                                    print(len(message), lenght)
                                     iv = message [:16]
                                     encrypted_data = message [16:]
-                                    print("a")
-
+                                    
                                     cipher = AES.new(AES_key, AES.MODE_CBC,iv=iv)
                                     message = unpad(cipher.decrypt(encrypted_data),AES.block_size)
-                                    print("a")
-
 
                                     message = message.replace('AAAA'.encode(),''.encode())
+
+                                    print("[-] - File succesfully decrypted")
+                                    print(time.time() - t1, ' s')
+                                    print("[|] - Writing to file...")
+                                    t1 = time.time()
+                                    
+                                
                                 
                                     file = "file/" + name
                                     with open(file, 'wb') as wf:
                                         wf.write(message)
-                                    print("FILE CREATED")
+                                        
+                                    print("[-] - File succesfully created ")
+                                    print(time.time() - t1, ' s')
+                                    print(int(time.time() - t2), 's for the full operation')
+                                                                   
 
-                                getf_thread = threading.Thread(target=fwf, args=(ml,))
+                                getf_thread = threading.Thread(target=fwf, args=(ml,t2))
                                 getf_thread.start()
                                     
-                                print(message[200:])
                             time.sleep(0.1)
                             s.close()
                       
@@ -758,10 +758,12 @@ def clienting(host,port,nickname):
                             print(R"FAILED - Can't open file\n")
                             takefile
                 inpute = takefile()
-                print(inpute)       
+                t2 = time.time()       
+                print("[|] - Interpreting your file, please wait...")
+                t1 = time.time()
                 with open (inpute, 'rb') as f_inpute:
                     message = f_inpute.read()
-                    print(message[:200])
+                    print("[|] - Creating info payload...")
                     lll = len(message)
                     infoA = "FILE"
                     iB = []
@@ -778,8 +780,9 @@ def clienting(host,port,nickname):
                     info = crypt(bytes(str(info).encode()))
                     sigi = crypt(bytes(str(sigi).encode()))
 
-
-
+                    print("[|] - Encrypting your file, please wait...")
+                    print(time.time() - t1, ' s')
+                    t1 = time.time()
                     l = 16 - (len(message) % 16)
                     message = ("AAAA"*(l+16)).encode() + message       
                 
@@ -788,20 +791,33 @@ def clienting(host,port,nickname):
 
                     sigm = crypt(bytes(str(sigm).encode()))
 
-
+                    print("[-] - File succesfully encrypted")
+                    print(time.time() - t1, ' s')
+                    print("[|] - Sending info...")
+                                                          
                     client.send(info)
                     time.sleep(0.1)
                     client.send(sigm)
                     time.sleep(0.5)
 
+                    print("[|] - Info succesfully sent")
+
+                    print("[o] - Sending file...")
+
+                    t1 = time.time()
+
                     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                         s.connect((host, infoD))
-                        print(f"send to {host}:{infoD}")
+                        print(f"[@] - Send to {host}:{infoD}")
                         s.sendall(message)
                         s.close()
-
-                    print(lll)
+                    
+                    print("[-] - File succesfully sent")
+                    print(time.time() - t1, ' s')
+                    
                     print("END")
+                    print(int(time.time() - t2), 's for the full operation')
+                    
                     time.sleep(0.1)
 
             elif message[-4:] == "GETF":
@@ -882,15 +898,12 @@ def clienting(host,port,nickname):
 
                 sss = decrypt(signature)
         
-                print(sss)
                 verif = check_sign(decrypt(message),sss)
 
                 if verif == False:
                     verif = "hash check - " + R + "FAILED" + W + " - ❌"
                 else:
                     verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
-                print(verif)
-                
                 
                 client.send(info)
                 time.sleep(0.1)
