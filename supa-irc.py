@@ -1,4 +1,4 @@
-VERSION =   "0.2.3-2"
+VERSION =   "0.2.4"
 
 
 import argparse, socket, threading, time, base64, os, glob,time
@@ -149,9 +149,9 @@ def serving(host,port):
             hashes.SHA256()
         )
 
-        print(message,type(message))
-        print(signature,type(signature))
-        print(hash,type(hash))
+        # print(message,type(message))
+        # print(signature,type(signature))
+        # print(hash,type(hash))
         
 
         return signature, hash
@@ -274,13 +274,13 @@ def serving(host,port):
                                     ml.append(aa)
                                     if not aa:
                                         break
-                                    if int(time.time() - on_s) >= 1:
+                                    if (time.time() - on_s) >= 1:
                                         now_time = (time.time() - start_time)   
                                         on_s = time.time()
                                         perc = len(ml) * 100 / (int(lenght) / 1024)
                                         spd = len(ml) / int(now_time)
                                         tl = ( int(now_time) * 100 / int(perc) ) - int(now_time)
-                                        print(int(perc), ' %\t\tt_f_s: ',int(now_time), 's\t\tt_l: ',int(tl), 's\t\tspd: ',int(spd/100000),'MB/s')
+                                        print(int(perc), ' %\t\tt_f_s: ',int(now_time),'s\t\tt_l:',int(tl),'s\t\tspd:',int(spd/100000),'MB/s')
                                 print("[-] - File succesfully received ")
                                 print(time.time() - t1, ' s')
                                 print("[|] - Decrypting file...")
@@ -304,9 +304,12 @@ def serving(host,port):
                                     print("[|] - Writing to file...")
                                     t1 = time.time()
                                     
-                                
-                                
-                                    file = "file/" + name
+                                    try:
+                                        os.makedirs("file/"+name[:-2])
+                                    except:
+                                        print("[;] - Folder already created")
+
+                                    file = "file/" + name[:-2] + '/' + name
                                     with open(file, 'wb') as wf:
                                         wf.write(message)
                                         
@@ -321,91 +324,165 @@ def serving(host,port):
                             time.sleep(0.1)
                             s.close()
                       
-                        
-                        # iv = message [:16]
-                        # encrypted_data = message [16:]
-
-                        # cipher = AES.new(AES_key, AES.MODE_CBC,iv=iv)
-                        # message = unpad(cipher.decrypt(encrypted_data),AES.block_size)
-
-                        # message = message.replace('AAAA'.encode(),''.encode())
-                        
-                        # signature = decrypt(signature,client)
-                        # verif, hash = check_sign(message,signature,client)
-                        
-                        # if verif == False:
-                        #     verif = "hash check - " + R + "FAILED" + W + " - ❌"
-                        # else:
-                        #     verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
-
-                        # file = "file/" + name
-                        # with open(file, 'wb') as wf:
-                        #     wf.write(message)
-
                         print("ALL GOOD")
     
+
                     elif message[:4] == 'GETF':
                         content = glob.glob("file/*")
                         lay = ""
                         for i in content:
                             lay = lay + i[5:] + "\n" 
-                        print("\n\n",lay)
                         lay = crypt(bytes(str(lay).encode()),client)
-                        print("crypted")
-                        print(lay)
                         client.send(lay)
-                        print("check")
+                        print("[Y] - Layout sent")
+                        print(content)
                         m = client.recv(8192)
-                        m = decrypt(bytes(str(m).encode()),client)
+                        print("check")
+                        m = decrypt(m,client)
                         print(m)
+                        print(content[int(m)])  
                         m = content[int(m)]
-                        try:
-                            with open(m, 'rb') as r:
-                                message = r.read()
-                                print(message[:200])
-                                lll = len(message)
-                                infoA = "FILE"
-                                iB = []
-                                iba = r.split('/')
-                                for a in iba:
-                                    iB.append(a)
-                                infoB = iB[len(iB)-1]
-                                infoC = len(message)
-                                infoD = 9878
-                                info = f"{infoA}{infoB};;;{infoC};;;{infoD}"
-                                sigi = sign(bytes(str(info).encode()),client)
-                                sigm = sign(bytes(str(message).encode()),client)
 
-                                info = crypt(bytes(str(info).encode()),client)
-                                sigi = crypt(bytes(str(sigi).encode()),client)
+                        file_list = os.walk(m)
+                        f_list = []
+                        fnl = m.split("/")
+                        file_name = fnl[len(fnl)-2]
+                        folder_name = fnl[len(fnl)-3]
+                        print(file_name)
+
+                        for i,x,v in file_list:
+                            for i in v:
+                                f_list.append(i)
+                        f_list = sorted(f_list)
+
+                        print(f_list)
+
+                        for f in f_list:
+                            print(f"new file interpreted {f}")
+                            def send_f(f, t2):
+                                print('file/'+folder_name+'/'+f)
+                                with open('file/'+folder_name+'/'+f,'rb') as rb:
+                                    # with open (inpute, 'rb') as f_inpute:
+                                    t1 = time.time()
+                                    message = f
+                                    print("[|] - Creating info payload...")
+                                    lll = len(message)
+                                    infoA = 'FILE'
+                                    iB = []
+                                    iba = file_name,str(file_name),str(f[-1:])
+                                    for a in iba:
+                                        iB.append(a)
+                                    infoB = iB[len(iB)-1]
+                                    infoC = len(message)
+                                    infoD = 9878
+                                    info = f"{infoA}{infoB};;;{infoC};;;{infoD}"
+                                    print(info)
+                                    print("[|] - Signing payload...")
+                                    sigi = sign(bytes(str(info).encode()),client)
+                                    # sigm = sign(bytes(str('random shit cuz it take a crazy amount of time to sign 100GB').encode()))
+                                    print("[|] - Pyload signed...")
+                                    info = crypt(bytes(str(info).encode()),client)
+                                    sigi = crypt(bytes(str(sigi).encode()),client)
+                                    print("[|] - Payload encrypted...")
+
+                                    message = rb.read()
+                                    print("[|] - Encrypting your file, please wait...")
+                                    print(time.time() - t1, ' s')
+                                    t1 = time.time()
+                                    l = 16 - (len(message) % 16)
+                                    message = ("AAAA"*(l+16)).encode() + message       
+                                
+                                    cipher = AES.new(AES_key,AES.MODE_CBC)
+                                    message = cipher.encrypt(pad(message,AES.block_size))
+
+                                    # sigm = crypt(bytes(str(sigm).encode()))
+
+                                    print("[-] - File succesfully encrypted")
+                                    print(time.time() - t1, ' s')
+                                    print("[|] - Sending info...")
+                                                                        
+                                    client.send(info)
+                                    time.sleep(0.1)
+                                    # client.send(sigm)
+                                    time.sleep(0.5)
+
+                                    print("[|] - Info succesfully sent")
+
+                                    print("[o] - Sending file...")
+
+                                    t1 = time.time()
+
+                                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                                        s.connect((host, infoD))
+                                        print(f"[@] - Send to {host}:{infoD}")
+                                        s.sendall(message)
+                                        s.close()
+                                    
+                                    print("[-] - File succesfully sent")
+                                    print(time.time() - t1, ' s')
+                                    
+                                    print("END")
+                                    print(int(time.time() - t2), 's for the full operation')
+                                    
+                                    time.sleep(0.1)
+
+                            print("[o] - Thread initialization...")
+                            print(f,t2)
+                            send_f(f,t2)
+                            # getf_thread = threading.Thread(target=send_f, args=(f,t2))
+                            # getf_thread.start()
+                            print("[o] - Thread started...")
+                        client.send("AAA")
+                                
+
+
+                        # try:
+                        #     with open(m, 'rb') as r:
+                        #         message = r.read()
+                        #         print(message[:200])
+                        #         lll = len(message)
+                        #         infoA = "FILE"
+                        #         iB = []
+                        #         iba = r.split('/')
+                        #         for a in iba:
+                        #             iB.append(a)
+                        #         infoB = iB[len(iB)-1]
+                        #         infoC = len(message)
+                        #         infoD = 9878
+                        #         info = f"{infoA}{infoB};;;{infoC};;;{infoD}"
+                        #         sigi = sign(bytes(str(info).encode()),client)
+                        #         sigm = sign(bytes(str(message).encode()),client)
+
+                        #         info = crypt(bytes(str(info).encode()),client)
+                        #         sigi = crypt(bytes(str(sigi).encode()),client)
 
 
 
-                                l = 16 - (len(message) % 16)
-                                message = ("AAAA"*(l+16)).encode() + message       
+                        #         l = 16 - (len(message) % 16)
+                        #         message = ("AAAA"*(l+16)).encode() + message       
                             
-                                cipher = AES.new(AES_key,AES.MODE_CBC)
-                                message = cipher.encrypt(pad(message,AES.block_size))
+                        #         cipher = AES.new(AES_key,AES.MODE_CBC)
+                        #         message = cipher.encrypt(pad(message,AES.block_size))
 
-                                sigm = crypt(bytes(str(sigm).encode()))
+                        #         sigm = crypt(bytes(str(sigm).encode()))
 
 
-                                client.send(info)
-                                time.sleep(0.1)
-                                client.send(sigm)
-                                time.sleep(0.5)
+                        #         client.send(info)
+                        #         time.sleep(0.1)
+                        #         client.send(sigm)
+                        #         time.sleep(0.5)
 
-                                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                                    s.connect((host, infoD))
-                                    print(f"send to {host}:{infoD}")
-                                    s.sendall(message)
-                                    s.close()
+                        #         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        #             s.connect((host, infoD))
+                        #             print(f"send to {host}:{infoD}")
+                        #             s.sendall(message)
+                        #             s.close()
 
-                                print(lll)
-                                print("END")
-                                time.sleep(0.1)
-                        except:
-                            print("File sending failed")
+                        #         print(lll)
+                        #         print("END")
+                        #         time.sleep(0.1)
+                        # except:
+                        #     print("File sending failed")
 
                             
 
@@ -716,26 +793,108 @@ def clienting(host,port,nickname):
                     client.close()
                     break
 
+                if decrypt(message) == "FILE":
+                    t2 = time.time()
+                    print("[;] - Receiving info of file")
+                    message = message[4:].split(';;;')
+                    name = message[0]
+                    lenght = message[1]
+                    t_port = int(message[2])
+                    signature = client.recv(8192)
+                    print("[:] - Info successfully received")
+                    message = b''
+                    t1 = time.time()
+                    print("[;] - Receiving file")
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.bind((host, t_port))
+                        s.listen()
+                        conn, addr = s.accept()
+                        message = b''
+                        
+                        start_time = time.time()
 
-                time.sleep(0.1)
-                signature = client.recv(8192)
-                message = decrypt(message)
-               
-                signature = decrypt(signature)
-                
-              
-                verif, hash = check_sign(message,signature)
-                if verif == False:
-                    verif = "hash check - " + R + "FAILED" + W + " - ❌"
+                        with conn:
+                            perc = 0
+                            on_s = time.time()
+                            ml =[]                         
+                            while True:
+                                aa = conn.recv(1024)
+                                ml.append(aa)
+                                if not aa:
+                                    break
+                                if (time.time() - on_s) >= 1:
+                                    now_time = (time.time() - start_time)   
+                                    on_s = time.time()
+                                    perc = len(ml) * 100 / (int(lenght) / 1024)
+                                    spd = len(ml) / int(now_time)
+                                    tl = ( int(now_time) * 100 / int(perc) ) - int(now_time)
+                                    print(int(perc), ' %\t\tt_f_s: ',int(now_time),'s\t\tt_l:',int(tl),'s\t\tspd:',int(spd/100000),'MB/s')
+                            print("[-] - File succesfully received ")
+                            print(time.time() - t1, ' s')
+                            print("[|] - Decrypting file...")
+                            
+                            def fwf(ml,t2):
+
+                                t1 = time.time()
+                                message = b''
+                                message = b''.join(ml)
+    
+                                iv = message [:16]
+                                encrypted_data = message [16:]
+                                
+                                cipher = AES.new(AES_key, AES.MODE_CBC,iv=iv)
+                                message = unpad(cipher.decrypt(encrypted_data),AES.block_size)
+
+                                message = message.replace('AAAA'.encode(),''.encode())
+
+                                print("[-] - File succesfully decrypted")
+                                print(time.time() - t1, ' s')
+                                print("[|] - Writing to file...")
+                                t1 = time.time()
+                                
+                                try:
+                                    os.makedirs("file/"+name[:-2])
+                                except:
+                                    print("[;] - Folder already created")
+
+                                file = "file/" + name[:-2] + '/' + name
+                                with open(file, 'wb') as wf:
+                                    wf.write(message)
+                                    
+                                print("[-] - File succesfully created ")
+                                print(time.time() - t1, ' s')
+                                print(int(time.time() - t2), 's for the full operation')
+                                                                
+
+                            getf_thread = threading.Thread(target=fwf, args=(ml,t2))
+                            getf_thread.start()
+                                
+                        time.sleep(0.1)
+                        s.close()
+                    
+                    print("ALL GOOD")
+
+
                 else:
-                    verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
+                    time.sleep(0.1)
+                    signature = client.recv(8192)
+                    message = decrypt(message)
                 
-                print(f"""
+                    signature = decrypt(signature)
+                    
+                
+                    verif, hash = check_sign(message,signature)
+                    if verif == False:
+                        verif = "hash check - " + R + "FAILED" + W + " - ❌"
+                    else:
+                        verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
+                    
+                    print(f"""
 {B}╭╴{O}New message Received{W}
 {B}│{W}{verif}
 {B}│{W}hash received : {P}{str(hash[:-1])[-6:]}{W}
 {B}╰──{W}{message}""")
-                print(f">{B}:{W}",end=" ")
+                    print(f">{B}:{W}",end=" ")
 
             except:
                 print("An error occured!")
@@ -762,14 +921,16 @@ def clienting(host,port,nickname):
                 inpute = takefile()
                 t2 = time.time()       
                 print("[|] - Interpreting your file, please wait...")
-                t1 = time.time()
-                with open (inpute, 'rb') as f_inpute:
-                    message = f_inpute.read()
+                tick = 1
+                def send_f(inpute, file_name, tick):
+                    # with open (inpute, 'rb') as f_inpute:
+                    t1 = time.time()
+                    message = inpute
                     print("[|] - Creating info payload...")
                     lll = len(message)
                     infoA = "FILE"
                     iB = []
-                    iba = inpute.split('/')
+                    iba = file_name,str(file_name)+'.'+str(tick)
                     for a in iba:
                         iB.append(a)
                     infoB = iB[len(iB)-1]
@@ -798,7 +959,7 @@ def clienting(host,port,nickname):
                     print("[-] - File succesfully encrypted")
                     print(time.time() - t1, ' s')
                     print("[|] - Sending info...")
-                                                          
+                                                        
                     client.send(info)
                     time.sleep(0.1)
                     client.send(sigm)
@@ -823,6 +984,34 @@ def clienting(host,port,nickname):
                     print(int(time.time() - t2), 's for the full operation')
                     
                     time.sleep(0.1)
+                
+
+                size = 1000000000
+                fnl = inpute.split("/")
+                file_name = fnl[len(fnl)-1]
+
+
+                print(inpute,size,file_name)
+
+                with open(inpute, 'rb') as rf:
+                    full_file = rf.read()
+
+                n = size
+                chunks = [full_file[i:i+n] for i in range(0, len(full_file), n)]
+
+                for c in chunks:
+                    # send_f(c,file_name)
+                    print("[-] - Thread started...")
+                    thread = threading.Thread(target=send_f, args=(c,file_name,tick))
+                    thread.start()
+                    tick += 1
+
+                    time.sleep(15)
+                    
+                print("\n\n[O] - File fully sent")
+
+
+
 
             elif message[-4:] == "GETF":
                 message = crypt(bytes(str(message[-4:]).encode()))
@@ -838,58 +1027,141 @@ def clienting(host,port,nickname):
                 c = input("\nEnter the indx of the file you want to download : ")
                 c = crypt(bytes(str(c).encode()))
                 client.send(c)
-                
-
-                
-                message = client.recv(8192).decode()
+                mas = client.recv(8192)
+                    
+                def r(mas):
+                    print(len(mas))
+                    if len(mas) == 0:
+                        time.sleep(0.5)
+                        mas = client.recv(8192)
+                        r(mas)   
+                r(mas) 
+                message = decrypt(mas)
                 print(message)
-                message = message[4:].split(';;;')
-                print(message)
-                name = message[0]
-                lenght = message[1]
-                t_port = int(message[2])
-                signature = client.recv(8192)
-                message = b''
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    print(s)
-                    s.bind((host, t_port))
-                    print(f"host on {host}:{t_port}")
-                    s.listen()
-                    conn, addr = s.accept()
-                    message = b''
-                    with conn:
-                        print(f"Connected by {addr}")
-                        while True:
-                            aa = conn.recv(1024)
-                            if not aa:
-                                break
-                            message = message + aa
-                            print(str((len(message) * 100) / int(lenght))[:6], ' %')
-                            
-                    time.sleep(0.1)
-                    s.close()
-                
-                iv = message [:16]
-                encrypted_data = message [16:]
-
-                cipher = AES.new(AES_key, AES.MODE_CBC,iv=iv)
-                message = unpad(cipher.decrypt(encrypted_data),AES.block_size)
-
-                message = message.replace('AAAA'.encode(),''.encode())
-                
-                signature = decrypt(signature)
-                verif, hash = check_sign(message,signature)
-                
-                if verif == False:
-                    verif = "hash check - " + R + "FAILED" + W + " - ❌"
+                if len(message) == 3:
+                    print("ALL FILES ARE DOWNLOADED")
                 else:
-                    verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
+                    message = message[4:].split(';;;')
+                    print(message)
+                    name = message[0]
+                    lenght = message[1]
+                    t_port = int(message[2])
+                    # signature = client.recv(8192)
+                    # message = b''
+                    # with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    #     print(s)
+                    #     s.bind((host, t_port))
+                    #     print(f"host on {host}:{t_port}")
+                    #     s.listen()
+                    #     conn, addr = s.accept()
+                    #     message = b''
+                    #     with conn:
+                    #         print(f"Connected by {addr}")
+                    #         while True:
+                    #             aa = conn.recv(1024)
+                    #             if not aa:
+                    #                 break
+                    #             message = message + aa
+                    #             print(str((len(message) * 100) / int(lenght))[:6], ' %')
+                                
+                    #     time.sleep(0.1)
+                    #     s.close()
+                    t2 = time.time()
+                    message = b''
+                    t1 = time.time()
+                    print("[;] - Receiving file")
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                        s.bind((host, t_port))
+                        s.listen()
+                        conn, addr = s.accept()
+                        message = b''
+                        
+                        start_time = time.time()
 
-                file = name
-                with open(file, 'wb') as wf:
-                    wf.write(message)
+                        with conn:
+                            perc = 0
+                            on_s = time.time()
+                            ml =[]                         
+                            while True:
+                                aa = conn.recv(1024)
+                                ml.append(aa)
+                                if not aa:
+                                    break
+                                if (time.time() - on_s) >= 1:
+                                    now_time = (time.time() - start_time)   
+                                    on_s = time.time()
+                                    perc = len(ml) * 100 / (int(lenght) / 1024)
+                                    spd = len(ml) / int(now_time)
+                                    tl = ( int(now_time) * 100 / int(perc) ) - int(now_time)
+                                    print(int(perc), ' %\t\tt_f_s: ',int(now_time),'s\t\tt_l:',int(tl),'s\t\tspd:',int(spd/100000),'MB/s')
+                            print("[-] - File succesfully received ")
+                            print(time.time() - t1, ' s')
+                            print("[|] - Decrypting file...")
+                            
+                            def fwf(ml,t2):
 
+                                t1 = time.time()
+                                message = b''
+                                message = b''.join(ml)
+
+                                iv = message [:16]
+                                encrypted_data = message [16:]
+                                
+                                cipher = AES.new(AES_key, AES.MODE_CBC,iv=iv)
+                                message = unpad(cipher.decrypt(encrypted_data),AES.block_size)
+
+                                message = message.replace('AAAA'.encode(),''.encode())
+
+                                print("[-] - File succesfully decrypted")
+                                print(time.time() - t1, ' s')
+                                print("[|] - Writing to file...")
+                                t1 = time.time()
+                                
+                                try:
+                                    os.makedirs("file_recv/"+name[:-2])
+                                except:
+                                    print("[;] - Folder already created")
+
+                                file = "file_recv/" + name[:-2] + '/' + name
+                                with open(file, 'wb') as wf:
+                                    wf.write(message)
+                                    
+                                print("[-] - File succesfully created ")
+                                print(time.time() - t1, ' s')
+                                print(int(time.time() - t2), 's for the full operation')
+                                                                
+
+                            getf_thread = threading.Thread(target=fwf, args=(ml,t2))
+                            getf_thread.start()
+                                
+                        time.sleep(0.1)
+                        s.close()
+                    
                 print("ALL GOOD")
+
+
+
+                # iv = message [:16]
+                # encrypted_data = message [16:]
+
+                # cipher = AES.new(AES_key, AES.MODE_CBC,iv=iv)
+                # message = unpad(cipher.decrypt(encrypted_data),AES.block_size)
+
+                # message = message.replace('AAAA'.encode(),''.encode())
+                
+                # signature = decrypt(signature)
+                # verif, hash = check_sign(message,signature)
+                
+                # if verif == False:
+                #     verif = "hash check - " + R + "FAILED" + W + " - ❌"
+                # else:
+                #     verif = "hash check - " + G + "NO ERROR" + W + " - ✅"
+
+                # file = name
+                # with open(file, 'wb') as wf:
+                #     wf.write(message)
+
+                # print("ALL GOOD")
                 
                
             ##############################################
