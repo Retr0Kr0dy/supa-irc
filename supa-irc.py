@@ -1,9 +1,8 @@
-VERSION =   "0.2.4"
+VERSION =   "0.2.4-2"
 
 
 import argparse, socket, threading, time, base64, os, glob,time
 from random import *
-
 
 
 
@@ -17,6 +16,14 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives import serialization
+
+
+from pyftpdlib.authorizers import DummyAuthorizer
+from pyftpdlib.handlers import FTPHandler
+from pyftpdlib.servers import FTPServer
+import binascii
+
+
 
 #color console
 W = '\033[0m'
@@ -248,82 +255,69 @@ def serving(host,port):
                     if message[:4] == 'FILE':
                         t2 = time.time()
                         print("[;] - Receiving info of file")
-                        message = message[4:].split(';;;')
-                        name = message[0]
-                        lenght = message[1]
-                        t_port = int(message[2])
-                        signature = client.recv(8192)
+                        # message = message[4:].split(';;;')
+                        # name = message[0]
+                        # lenght = message[1]
+                        # t_port = int(message[2])
+                        # signature = client.recv(8192)
                         print("[:] - Info successfully received")
                         message = b''
                         t1 = time.time()
                         print("[;] - Receiving file")
-                        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                            s.bind((host, t_port))
-                            s.listen()
-                            conn, addr = s.accept()
-                            message = b''
-                            
-                            start_time = time.time()
+                        
+                        print("[;] - Creating FTP server...")
 
-                            with conn:
-                                perc = 0
-                                on_s = time.time()
-                                ml =[]                         
-                                while True:
-                                    aa = conn.recv(1024)
-                                    ml.append(aa)
-                                    if not aa:
-                                        break
-                                    if (time.time() - on_s) >= 1:
-                                        now_time = (time.time() - start_time)   
-                                        on_s = time.time()
-                                        perc = len(ml) * 100 / (int(lenght) / 1024)
-                                        spd = len(ml) / int(now_time)
-                                        tl = ( int(now_time) * 100 / int(perc) ) - int(now_time)
-                                        print(int(perc), ' %\t\tt_f_s: ',int(now_time),'s\t\tt_l:',int(tl),'s\t\tspd:',int(spd/100000),'MB/s')
-                                print("[-] - File succesfully received ")
-                                print(time.time() - t1, ' s')
-                                print("[|] - Decrypting file...")
-                                
-                                def fwf(ml,t2):
 
-                                    t1 = time.time()
-                                    message = b''
-                                    message = b''.join(ml)
-        
-                                    iv = message [:16]
-                                    encrypted_data = message [16:]
-                                    
-                                    cipher = AES.new(AES_key, AES.MODE_CBC,iv=iv)
-                                    message = unpad(cipher.decrypt(encrypted_data),AES.block_size)
+                        FTP_PORT = randint(2121,3232)
+                        print("port ",FTP_PORT)
+                        FTP_USER = binascii.b2a_base64(os.urandom(15))[:-2]
+                        print("user ",FTP_USER)
+                        FTP_PASSWORD = binascii.b2a_base64(os.urandom(15))[:-2]
+                        print("password ",FTP_PASSWORD)
+                        FTP_DIRECTORY = "./file/"
+                        print("dir ",FTP_DIRECTORY)
 
-                                    message = message.replace('AAAA'.encode(),''.encode())
 
-                                    print("[-] - File succesfully decrypted")
-                                    print(time.time() - t1, ' s')
-                                    print("[|] - Writing to file...")
-                                    t1 = time.time()
-                                    
-                                    try:
-                                        os.makedirs("file/"+name[:-2])
-                                    except:
-                                        print("[;] - Folder already created")
+                        payload = bytes(str(str(FTP_USER)[2:-1] + ';;;' + str(FTP_PASSWORD)[2:-1] + ';;;' + str(FTP_PORT)).encode())
+                        print(payload)
+                        e_payload = crypt(payload,client)
+                        print("check 1")
+                        s_payload = sign(payload,client)
+                        print("check 2")
+                        s_payload = crypt(bytes(str(s_payload).encode()),client)
+                        print("check 3")
+                        
 
-                                    file = "file/" + name[:-2] + '/' + name
-                                    with open(file, 'wb') as wf:
-                                        wf.write(message)
-                                        
-                                    print("[-] - File succesfully created ")
-                                    print(time.time() - t1, ' s')
-                                    print(int(time.time() - t2), 's for the full operation')
-                                                                   
+                        print("[;] - Sending payload")
+                        time.sleep(1)
+                        client.send(e_payload)
+                        print("[;] - Sending payload signature")
+                        time.sleep(1)
+                        client.send(s_payload)
 
-                                getf_thread = threading.Thread(target=fwf, args=(ml,t2))
-                                getf_thread.start()
-                                    
-                            time.sleep(0.1)
-                            s.close()
-                      
+
+                        # authorizer = DummyAuthorizer()
+                        # authorizer.add_user(FTP_USER, FTP_PASSWORD, FTP_DIRECTORY, perm='elradfmw')
+                        # handler = FTPHandler
+                        # handler.authorizer = authorizer
+                        # handler.banner = "Best server arn't in russia"
+
+                        # address = ('', FTP_PORT)
+                        # server = FTPServer(address, handler)
+
+                        # server.max_cons = 2
+                        # server.max_cons_per_ip = 2
+
+                        # server.serve_forever()
+                        # server.close()
+
+
+                        
+
+
+
+
+
                         print("ALL GOOD")
     
 
@@ -802,6 +796,9 @@ def clienting(host,port,nickname):
                     t_port = int(message[2])
                     signature = client.recv(8192)
                     print("[:] - Info successfully received")
+
+                    print(name,lenght,t_port)
+
                     message = b''
                     t1 = time.time()
                     print("[;] - Receiving file")
@@ -912,102 +909,33 @@ def clienting(host,port,nickname):
             ##############################################
             elif message[-4:] == "FILE":
                 def takefile():
-                        try:
-                            inpute = input(G + "Enter the file path you want to send : " + W)
-                            return inpute
-                        except:
-                            print(R"FAILED - Can't open file\n")
-                            takefile
+                    try:
+                        inpute = input(G + "Enter the file path you want to send : " + W)
+                        return inpute
+                    except:
+                        print(R"FAILED - Can't open file\n")
+                        takefile()
                 inpute = takefile()
                 t2 = time.time()       
                 print("[|] - Interpreting your file, please wait...")
                 tick = 1
-                def send_f(inpute, file_name, tick):
-                    # with open (inpute, 'rb') as f_inpute:
-                    t1 = time.time()
-                    message = inpute
-                    print("[|] - Creating info payload...")
-                    lll = len(message)
-                    infoA = "FILE"
-                    iB = []
-                    iba = file_name,str(file_name)+'.'+str(tick)
-                    for a in iba:
-                        iB.append(a)
-                    infoB = iB[len(iB)-1]
-                    infoC = len(message)
-                    infoD = 9878
-                    info = f"{infoA}{infoB};;;{infoC};;;{infoD}"
-                    print("[|] - Signing payload...")
-                    sigi = sign(bytes(str(info).encode()))
-                    sigm = sign(bytes(str('random shit cuz it take a crazy amount of time to sign 100GB').encode()))
-                    print("[|] - Pyload signed...")
-                    info = crypt(bytes(str(info).encode()))
-                    sigi = crypt(bytes(str(sigi).encode()))
-                    print("[|] - Payload encrypted...")
+                client.send(crypt(bytes(str('FILE').encode())))
+                print("[;] - 'FILE' sent")
+                print("[;] - Receiving info of file")
+                resp = client.recv(8192)
+                message = decrypt(resp)
+                message = message.split(';;;')
+                name = message[0]
+                lenght = message[1]
+                t_port = int(message[2])
+                signature = client.recv(8192)
+                print("[:] - Info successfully received")
 
-                    print("[|] - Encrypting your file, please wait...")
-                    print(time.time() - t1, ' s')
-                    t1 = time.time()
-                    l = 16 - (len(message) % 16)
-                    message = ("AAAA"*(l+16)).encode() + message       
-                
-                    cipher = AES.new(AES_key,AES.MODE_CBC)
-                    message = cipher.encrypt(pad(message,AES.block_size))
-
-                    sigm = crypt(bytes(str(sigm).encode()))
-
-                    print("[-] - File succesfully encrypted")
-                    print(time.time() - t1, ' s')
-                    print("[|] - Sending info...")
-                                                        
-                    client.send(info)
-                    time.sleep(0.1)
-                    client.send(sigm)
-                    time.sleep(0.5)
-
-                    print("[|] - Info succesfully sent")
-
-                    print("[o] - Sending file...")
-
-                    t1 = time.time()
-
-                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                        s.connect((host, infoD))
-                        print(f"[@] - Send to {host}:{infoD}")
-                        s.sendall(message)
-                        s.close()
-                    
-                    print("[-] - File succesfully sent")
-                    print(time.time() - t1, ' s')
-                    
-                    print("END")
-                    print(int(time.time() - t2), 's for the full operation')
-                    
-                    time.sleep(0.1)
-                
-
-                size = 1000000000
-                fnl = inpute.split("/")
-                file_name = fnl[len(fnl)-1]
+                print(name)
+                print(lenght)
+                print(t_port)
 
 
-                print(inpute,size,file_name)
-
-                with open(inpute, 'rb') as rf:
-                    full_file = rf.read()
-
-                n = size
-                chunks = [full_file[i:i+n] for i in range(0, len(full_file), n)]
-
-                for c in chunks:
-                    # send_f(c,file_name)
-                    print("[-] - Thread started...")
-                    thread = threading.Thread(target=send_f, args=(c,file_name,tick))
-                    thread.start()
-                    tick += 1
-
-                    time.sleep(15)
-                    
                 print("\n\n[O] - File fully sent")
 
 
