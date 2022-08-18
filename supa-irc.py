@@ -1,4 +1,4 @@
-VERSION =   "0.2.4-2"
+VERSION =   "0.2.4-3"
 
 
 import argparse, socket, threading, time, base64, os, glob,time
@@ -22,6 +22,8 @@ from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.handlers import FTPHandler
 from pyftpdlib.servers import FTPServer
 import binascii
+from ftplib import FTP
+
 
 
 
@@ -254,12 +256,8 @@ def serving(host,port):
 
                     if message[:4] == 'FILE':
                         t2 = time.time()
+                        file_name = message[4:]
                         print("[;] - Receiving info of file")
-                        # message = message[4:].split(';;;')
-                        # name = message[0]
-                        # lenght = message[1]
-                        # t_port = int(message[2])
-                        # signature = client.recv(8192)
                         print("[:] - Info successfully received")
                         message = b''
                         t1 = time.time()
@@ -275,10 +273,9 @@ def serving(host,port):
                         FTP_PASSWORD = binascii.b2a_base64(os.urandom(15))[:-2]
                         print("password ",FTP_PASSWORD)
                         FTP_DIRECTORY = "./file/"
-                        print("dir ",FTP_DIRECTORY)
+                        print("dir ",FTP_DIRECTORY,' filename ', file_name)
 
-
-                        payload = bytes(str(str(FTP_USER)[2:-1] + ';;;' + str(FTP_PASSWORD)[2:-1] + ';;;' + str(FTP_PORT)).encode())
+                        payload = bytes(str(str(FTP_USER)[2:-1] + ';;;' + str(FTP_PASSWORD)[2:-1] + ';;;' + str(FTP_PORT) + ';;;' + str(file_name)).encode())
                         print(payload)
                         e_payload = crypt(payload,client)
                         print("check 1")
@@ -287,30 +284,39 @@ def serving(host,port):
                         s_payload = crypt(bytes(str(s_payload).encode()),client)
                         print("check 3")
                         
-
+                        time.sleep(3)
                         print("[;] - Sending payload")
                         time.sleep(1)
                         client.send(e_payload)
                         print("[;] - Sending payload signature")
-                        time.sleep(1)
                         client.send(s_payload)
+                        time.sleep(1)
 
+                        def FTPing():
+                            print("FTPing")
+                            authorizer = DummyAuthorizer()
+                            authorizer.add_user(str(FTP_USER)[2:-1], str(FTP_PASSWORD)[2:-1], FTP_DIRECTORY, perm='elradfmw')
+                            handler = FTPHandler
+                            handler.authorizer = authorizer
+                            handler.banner = "Best server arn't in russia"
 
-                        # authorizer = DummyAuthorizer()
-                        # authorizer.add_user(FTP_USER, FTP_PASSWORD, FTP_DIRECTORY, perm='elradfmw')
-                        # handler = FTPHandler
-                        # handler.authorizer = authorizer
-                        # handler.banner = "Best server arn't in russia"
+                            address = (host, FTP_PORT)
+                            server = FTPServer(address, handler)
 
-                        # address = ('', FTP_PORT)
-                        # server = FTPServer(address, handler)
+                            server.max_cons = 5
+                            server.max_cons_per_ip = 2
 
-                        # server.max_cons = 2
-                        # server.max_cons_per_ip = 2
-
-                        # server.serve_forever()
-                        # server.close()
-
+                            server.serve_forever()
+                            print("FTP server listening...")
+                            if client.recv(8192) == 'END'.encode():
+                                print("ended")
+                                server.close()
+                            
+                        
+                        getf_thread = threading.Thread(target=FTPing, args=())
+                        getf_thread.start()
+                        print("[o] - Thread started...")
+                    
 
                         
 
@@ -916,24 +922,57 @@ def clienting(host,port,nickname):
                         print(R"FAILED - Can't open file\n")
                         takefile()
                 inpute = takefile()
+                iL = inpute.split("/")
+                file_name = iL[len(iL)-1]
+                iL.pop(len(iL)-1)
+                dir_name = ''
+
+                for i in iL:
+                    dir_name += i + '/'
+
                 t2 = time.time()       
                 print("[|] - Interpreting your file, please wait...")
                 tick = 1
-                client.send(crypt(bytes(str('FILE').encode())))
+                client.send(crypt(bytes(str('FILE'+file_name).encode())))
                 print("[;] - 'FILE' sent")
                 print("[;] - Receiving info of file")
                 resp = client.recv(8192)
-                message = decrypt(resp)
-                message = message.split(';;;')
-                name = message[0]
-                lenght = message[1]
-                t_port = int(message[2])
+                print('resp')
                 signature = client.recv(8192)
                 print("[:] - Info successfully received")
+                message = decrypt(resp)
+                message = message.split(';;;')
+                user = message[0]
+                password = message[1]
+                port = int(message[2])
+                file_name = message[3]
+                print("[:] - Info successfully interpreted")
 
-                print(name)
-                print(lenght)
-                print(t_port)
+                print('user, pass ; ', user, password)
+                print('port, filename ; ', port , file_name)
+                time.sleep(3)
+
+                def FTPing(user, password, port, file_name):
+                    file = file_name
+
+                    ftp = FTP()
+                    print("Connecting to FTP server")
+                    ftp.connect(host,int(port))
+                    print("host    ; ",host)
+                    print("port    ; ", port)
+                    
+                    print("Log in to FTP")
+                    print("user ; ",user)
+                    print("password ; ", password)
+                    ftp.login(user,password)
+                    print("LOGGED")
+
+                                        
+                    with open(str(dir_name + file_name), 'rb') as handle:
+                        ftp.storbinary('STOR %s' % file_name, handle.read())
+                FTPing(user, password, port, file_name)
+                client.send('END'.encode())
+
 
 
                 print("\n\n[O] - File fully sent")
