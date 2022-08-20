@@ -69,11 +69,11 @@ docker run -it -w /work -v ${PWD}:/work supa-irc:<version tag>
 
 ### Server
 
-`python3.10 ./supa-irc.py -s -a <address to use > -p <port to use>`
+`python supa-irc.py -s -a <address to use > -p <port to use>`
 
 ### Client
 
-`python3.10 ./supa-irc.py -c -a <address of server> -p <port of server> -n <nickname to use>`
+`python supa-irc.py -c -a <address of server> -p <port of server> -n <nickname to use>`
 
 
 
