@@ -1,6 +1,8 @@
 Supa-IRC
 ======= 
 
+### [Remember to check the Wiki !](https://github.com/Retr0Kr0dy/supa-irc/wiki/Supa-IRC-Wiki)
+
 Supa-IRC is an CLI encrypted chat over TCP using RSA and AES (yes it should be TLS but lemme do my stuff). 
 
 IRC (Internet Relay Chat) are text-based chat system for instant messaging. They are not used that much nowaday, but they still are good coding challenge or old dad jokes.
@@ -78,6 +80,8 @@ docker run -it -w /work -v ${PWD}:/work supa-irc:<version tag>
 # HOW IT WORK ?!
 
 blablabla
+
+### [Remember to check the Wiki !](https://github.com/Retr0Kr0dy/supa-irc/wiki/Supa-IRC-Wiki)
 
 # VERSION
 
