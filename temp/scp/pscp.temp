@@ -1,0 +1,17 @@
+COMMAND ;
+
+Get :
+
+  ./pscp.exe -pw <password> <user>@<IP>:<source> <destination>
+  
+Push :
+  
+  ./pscp.exe -pw <password> <source> <user>@<IP>:<destination>
+  
+  
+PSCP.EXE ; 
+  
+  direct : https://the.earth.li/~sgtatham/putty/latest/w64/pscp.exe
+  
+  main : https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html
+  
