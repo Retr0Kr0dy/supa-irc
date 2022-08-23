@@ -2,11 +2,11 @@ COMMAND ;
 
 Get :
 
-  ./pscp.exe -pw <password> <user>@<IP>:<source> <destination>
+  echo y | ./pscp.exe -pw <password> <user>@<IP>:<source> <destination>
   
 Push :
   
-  ./pscp.exe -pw <password> <source> <user>@<IP>:<destination>
+  echo y | ./pscp.exe -pw <password> <source> <user>@<IP>:<destination>
   
   
 PSCP.EXE ; 
