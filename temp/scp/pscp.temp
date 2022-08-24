@@ -1,17 +1,35 @@
 COMMAND ;
 
-Get :
+  windows
+  
+    Get :
 
-  echo y | ./pscp.exe -pw <password> <user>@<IP>:<source> <destination>
+      echo y | ./pscp.exe -pw <password> <user>@<IP>:<source> <destination>
   
-Push :
+    Push :
   
-  echo y | ./pscp.exe -pw <password> <source> <user>@<IP>:<destination>
+      echo y | ./pscp.exe -pw <password> <source> <user>@<IP>:<destination>
   
+
+    PSCP.EXE ; 
+
+      direct : https://the.earth.li/~sgtatham/putty/latest/w64/pscp.exe
+
+      main : https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html
   
-PSCP.EXE ; 
+
+  linux
   
-  direct : https://the.earth.li/~sgtatham/putty/latest/w64/pscp.exe
+    Get :
+
+      sshpass -p <password> scp -v <user>@<IP>:<source> <destination>
   
-  main : https://www.chiark.greenend.org.uk/~sgtatham/putty/latest.html
+    Push :
+  
+      sshpass -p <password> scp -v <source> <user>@<IP>:<destination>
+  
+
+    SSHPASS ; 
+
+      apt install sshpass -y
   
